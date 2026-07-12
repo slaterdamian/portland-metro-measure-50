@@ -1,0 +1,36 @@
+{
+  "pools": {
+    "intensity_police_fire_fpdr": 740512723,
+    "units_parks_housing": 211424844,
+    "per_parcel_admin_other_gf": 308831836,
+    "A2_total_gf_plus_fpdr": 1260769403,
+    "A1_city_tax_collected": 681658220,
+    "property_tax_coverage_of_services": 0.541
+  },
+  "reconciliation": {
+    "alloc_demand_sum": 1260769403,
+    "alloc_network_sum": 1260769403
+  },
+  "exempt_parcels_public_own": 5557,
+  "A2_demand": {
+    "pct_parcels_net_positive": 18.0,
+    "pct_taxable_parcels_net_positive": 19.0,
+    "pct_land_area_net_positive": 22.8
+  },
+  "A2_network": {
+    "pct_parcels_net_positive": 67.1,
+    "pct_taxable_parcels_net_positive": 71.0,
+    "pct_land_area_net_positive": 35.9
+  },
+  "A1_demand": {
+    "pct_parcels_net_positive": 48.3,
+    "pct_taxable_parcels_net_positive": 51.0,
+    "pct_land_area_net_positive": 41.4
+  },
+  "A1_network": {
+    "pct_parcels_net_positive": 71.3,
+    "pct_taxable_parcels_net_positive": 75.4,
+    "pct_land_area_net_positive": 41.7
+  },
+  "citywide_net_A2": -579111183
+}

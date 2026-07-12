@@ -17,6 +17,8 @@ outputs/figures/*
 !outputs/figures/.gitkeep
 !outputs/figures/value_per_acre_3d_render.png
 !outputs/figures/value_stack_3d.html
+!outputs/figures/revenues_costs_3d.png
+!outputs/figures/revenues_costs_3d_net_a2_network.png
 
 # ---- Media / local tooling ----------------------------------------------
 *.mp4
