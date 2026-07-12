@@ -4,7 +4,7 @@
 
   VALUE mode (default)  stacked AV/RMV: solid column = Measure-50 assessed value
                         per acre (Urban3 classed color); ghost top = real market
-                        value left untaxed (alpha 24, thin black wireframe edges
+                        value left untaxed (alpha 24, opaque black wireframe edges
                         so the transparent portion reads).
   NET mode (toggle)     Annapolis-style "Revenues & Costs Per Acre": height =
                         |net $ per acre| (city property tax minus allocated
@@ -77,11 +77,26 @@ tax-supported city services (FY2025-26 General Fund + FPDR, demand basis).
 <span style="color:#141414"><b>Black</b></span> = net positive,
 <span style="color:#a63603"><b>orange/red</b></span> = net negative. Citywide,
 property tax covers ~54% of these services — business taxes and fees fund the
-rest, so net-negative land is not "freeloading."<br/>
+rest, so net-negative here is not automatically "freeloading" (see the
+share-adjusted view).<br/>
+<i>Data: Metro RLIS (ODbL), FY2025-26 Adopted Budget; basemap &copy;
+OpenStreetMap contributors</i>`;
+const LEGEND_CARRY = `<b>Share-adjusted net per acre</b> &mdash; controls for the
+citywide funding mix: property tax covers 54.1% of tax-supported city services
+overall, so a parcel &quot;carries its share&quot; when its own tax covers at
+least 54.1% of its allocated cost. <span style="color:#141414"><b>Black</b></span>
+= carries MORE than its proportional share;
+<span style="color:#a63603"><b>orange/red</b></span> = carries less &mdash; the
+relative freeloaders, with the 54% gap controlled for. Height =
+|share-adjusted net $ per acre|.<br/>
 <i>Data: Metro RLIS (ODbL), FY2025-26 Adopted Budget; basemap &copy;
 OpenStreetMap contributors</i>`;
 
-const NCAP = __NCAP__;   // $/acre at full net height/intensity
+const NCAP = __NCAP__;    // $/acre at full height, coverage net
+const NCAP2 = __NCAP2__;  // $/acre at full height, share-adjusted net
+const MODES = ['value', 'net', 'carry'];
+const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
+                    carry: 'Share-Adjusted Net'};
 let mode = 'value';
 const deckgl = new deck.DeckGL({
   container: 'app',
@@ -94,12 +109,16 @@ const deckgl = new deck.DeckGL({
       `Assessed (taxed): <b>${p.t}</b> &middot; ${p.v}<br/>` +
       `Real market: <b>${p.u}</b> &middot; ${p.w}<br/>` +
       `Taxed share: <b>${p.p}%</b> of market value`};
-    const s = p.nt < 0 ? '&minus;' : '+';
-    const sa = p.q < 0 ? '&minus;' : '+';
+    const tot = mode === 'net' ? p.nt : p.n2;
+    const pa = mode === 'net' ? p.q : p.q2;
+    const s = tot < 0 ? '&minus;' : '+';
+    const sa = pa < 0 ? '&minus;' : '+';
+    const label = mode === 'net' ? 'Net vs city services' : 'Share-adjusted net';
     return {html:
+      `Assessed (taxed): <b>${p.t}</b> &middot; Market: <b>${p.u}</b><br/>` +
       `City tax paid: <b>$${p.c.toLocaleString()}</b><br/>` +
-      `Net vs city services: <b>${s}$${Math.abs(p.nt).toLocaleString()}</b>` +
-      ` &middot; ${sa}$${Math.abs(p.q).toLocaleString()}/ac`};
+      `${label}: <b>${s}$${Math.abs(tot).toLocaleString()}</b>` +
+      ` &middot; ${sa}$${Math.abs(pa).toLocaleString()}/ac`};
   },
   layers: []
 });
@@ -111,8 +130,8 @@ const osm = new deck.TileLayer({
     bounds: [p.tile.boundingBox[0][0], p.tile.boundingBox[0][1],
              p.tile.boundingBox[1][0], p.tile.boundingBox[1][1]]})
 });
-function netColor(q) {
-  const t = Math.min(Math.abs(q) / NCAP, 1), f = Math.max(t, 0.08);
+function netColor(q, cap) {
+  const t = Math.min(Math.abs(q) / cap, 1), f = Math.max(t, 0.08);
   if (q > 0) {  // grey -> black
     const c0 = [217, 217, 217], c1 = [20, 20, 20];
     return c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
@@ -132,25 +151,27 @@ function layersFor(m) {
       pickable: false, wireframe: true,
       getElevation: f => f.properties.m,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, __GA__],
-      getLineColor: [0, 0, 0, 90], lineWidthMinPixels: 1,
+      getLineColor: [0, 0, 0, 255], lineWidthMinPixels: 1,
       parameters: {depthMask: false},
       getPolygonOffset: () => [0, -600]})];
+  const field = m === 'net' ? 'q' : 'q2';
+  const cap = m === 'net' ? NCAP : NCAP2;
   return [osm,
-    new deck.GeoJsonLayer({id: 'net', data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'net-' + m, data: DATA, extruded: true,
       pickable: true, wireframe: false,
-      getElevation: f => Math.min(Math.abs(f.properties.q) / NCAP, 1) * __MAXNET__,
-      getFillColor: f => netColor(f.properties.q),
+      getElevation: f => Math.min(Math.abs(f.properties[field]) / cap, 1) * __MAXNET__,
+      getFillColor: f => netColor(f.properties[field], cap),
       getLineColor: [0, 0, 0, 0]})];
 }
 function render() {
-  document.getElementById('legend').innerHTML =
-    mode === 'value' ? LEGEND_VALUE : LEGEND_NET;
-  document.getElementById('toggle').innerHTML =
-    mode === 'value' ? 'Show: Revenues &amp; Costs' : 'Show: Taxable Value';
+  const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY};
+  document.getElementById('legend').innerHTML = LEGENDS[mode];
+  const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  document.getElementById('toggle').innerHTML = 'Show: ' + MODE_LABEL[next];
   deckgl.setProps({layers: layersFor(mode)});
 }
 document.getElementById('toggle').onclick = () => {
-  mode = mode === 'value' ? 'net' : 'value';
+  mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
   render();
 };
 fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
@@ -179,16 +200,20 @@ def main():
 
     # ---- net fields from the Frame A allocation (stage 80) --------------------
     n = gpd.read_file(NET, ignore_geometry=True,
-                      columns=["TLID", "city_tax", "net_a2_demand"])
+                      columns=["TLID", "city_tax", "net_a2_demand", "net_a1_demand"])
     n["tl"] = n["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
     n = n.drop_duplicates("tl").set_index("tl")
     g["tl"] = g["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
     g["city_tax"] = g["tl"].map(n["city_tax"]).fillna(0)
     g["net"] = g["tl"].map(n["net_a2_demand"]).fillna(0)
+    g["net1"] = g["tl"].map(n["net_a1_demand"]).fillna(0)
     g["q"] = np.where(g["acres"] > 0, g["net"] / g["acres"], 0).round(0).astype(int)
+    g["q2"] = np.where(g["acres"] > 0, g["net1"] / g["acres"], 0).round(0).astype(int)
     g["nt"] = g["net"].round(0).astype(int)
+    g["n2"] = g["net1"].round(0).astype(int)
     g["c"] = g["city_tax"].round(0).astype(int)
     ncap = float(np.quantile(np.abs(g.loc[g["q"] != 0, "q"]), NET_CLIP_Q))
+    ncap2 = float(np.quantile(np.abs(g.loc[g["q2"] != 0, "q2"]), NET_CLIP_Q))
 
     # ---- value-mode fields -----------------------------------------------------
     g["rmvpa"] = np.maximum(g["rmv_per_acre"].fillna(0), g["assessed_value_per_acre"])
@@ -209,7 +234,7 @@ def main():
           f"median taxed share {g['p'].median():.0f}%")
 
     out = g[["a", "m", "p", "r", "g", "b", "v", "w", "t", "u",
-             "q", "nt", "c", "geometry"]].to_crs(4326)
+             "q", "q2", "nt", "n2", "c", "geometry"]].to_crs(4326)
     out["geometry"] = shapely.set_precision(out.geometry.values, 1e-6)
     out = out[~out.geometry.is_empty]
     cen = out.geometry.union_all().centroid
@@ -222,6 +247,7 @@ def main():
             .replace("__LON__", f"{cen.x:.5f}")
             .replace("__GA__", str(GHOST_ALPHA))
             .replace("__NCAP__", f"{ncap:.0f}")
+            .replace("__NCAP2__", f"{ncap2:.0f}")
             .replace("__MAXNET__", f"{MAX_M_NET:.0f}"))
     OUT_HTML.write_text(html, encoding="utf-8")
     print(f"wrote {OUT_HTML} + data {OUT_DATA.stat().st_size/1e6:.0f} MB")
