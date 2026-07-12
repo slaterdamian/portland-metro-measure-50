@@ -1,0 +1,20 @@
+{
+  "method": "per-code rate categories x parcel AV; see script docstring",
+  "codes_with_categories": {
+    "M": 139,
+    "W": 360,
+    "C": 357
+  },
+  "matched_av": 76195092116,
+  "total_dollars": 2012397172,
+  "by_category": {
+    "education": 770793493,
+    "city_of_portland": 681658220,
+    "other_government": 559945460
+  },
+  "shares_pct": {
+    "education": 38.3,
+    "city_of_portland": 33.9,
+    "other_government": 27.8
+  }
+}
