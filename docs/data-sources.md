@@ -32,6 +32,7 @@ Portal: https://rlisdiscovery.oregonmetro.gov — prefer the **GeoJSON** exports
 | Dataset | Used for | Notes |
 |---|---|---|
 | **BES Collection System Lines** (open data portal / [PortlandMaps REST](https://www.portlandmaps.com/arcgis/rest/services/Public/Utilities_Sewer/MapServer)) | Sewer + stormwater network for cost allocation. 360,194 lines. | `OWNRSHIP` is plain text (`BES` = City of Portland; `TBD`, `ODOT`, `PRIV`, `PARK`, `PORT`), `SYSTEM` = SEWER/STORM/INLET, `PIPESIZE`, `MATERIAL`, `SERVSTAT` |
+| **Water Bureau Pressurized Mains** ([PortlandMaps REST](https://www.portlandmaps.com/arcgis/rest/services/Public/Utilities_Water/MapServer), layer 8; fetched via `src/12_fetch_water.py`) | Water network for cost allocation (the collection-system file covers sewer/storm only). 133,177 polylines. | `MATERIAL`, `MAINSIZE`; no ownership field — it is PWB's own network; territory bounded by Regional Water Districts (layer 4, 53 polygons) |
 | **Title 33 Planning & Zoning Code** (eff. 2026-07-01) | Phase 3 dimensional standards | 1,855 pp, clean text layer. Base zones: 33.110 single-dwelling, 33.120 multi-dwelling, 33.130 commercial/mixed-use, 33.140 employment/industrial |
 | FY2024-25 CIP Volume 2 | Capital cost side | |
 | City Budget Office publications | Operating cost side | https://www.portland.gov/budget |

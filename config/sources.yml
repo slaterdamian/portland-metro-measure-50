@@ -91,6 +91,24 @@ sources:
       (BES = City of Portland Bureau of Environmental Services; also TBD, ODOT,
       PRIV, PARK, PORT). SYSTEM = SEWER / STORM / INLET.
 
+  portland_water_mains:
+    file: "Background Info/GIS data/fetched/PORTLAND_water_pressurized_mains.geojson"
+    publisher: City of Portland Water Bureau via PortlandMaps REST
+    url: https://www.portlandmaps.com/arcgis/rest/services/Public/Utilities_Water/MapServer/8
+    retrieved: 2026-07-12
+    note: >
+      Pressurized water mains, 133,177 polylines (MATERIAL, MAINSIZE). Fetched
+      via paginated REST query (src/12_fetch_water.py). No ownership field --
+      the layer is the Water Bureau's own network; service territory bounded by
+      the Regional Water Districts layer (below).
+
+  portland_water_districts:
+    file: "Background Info/GIS data/fetched/PORTLAND_regional_water_districts.geojson"
+    publisher: City of Portland Water Bureau via PortlandMaps REST
+    url: https://www.portlandmaps.com/arcgis/rest/services/Public/Utilities_Water/MapServer/4
+    retrieved: 2026-07-12
+    note: 53 polygons -- PWB service territory vs other regional providers.
+
   multnomah_sal_summary:
     file: "Background Info/Multnomah County A&T Data/2025-2026-Summary-of-Assessments-and-Taxes.pdf"
     publisher: Multnomah County Assessment, Recording & Taxation
