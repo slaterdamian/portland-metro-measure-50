@@ -16,6 +16,7 @@ data/processed/*.geojson
 outputs/figures/*
 !outputs/figures/.gitkeep
 !outputs/figures/value_per_acre_3d_render.png
+!outputs/figures/value_stack_3d.html
 
 # ---- Media / local tooling ----------------------------------------------
 *.mp4

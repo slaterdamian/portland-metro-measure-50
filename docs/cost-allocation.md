@@ -49,8 +49,14 @@ $1,260.8M). Two variants, both reported:
   carry the services the land consumes," nothing more.
 
 **Frame B — enterprise supplement (not a net map).** Water ($850.5M) and BES
-($482.2M) are ratepayer-funded: users already pay by the gallon, so netting them
-against *taxes* would be a category error. Instead report **infrastructure
+($482.2M) are *predominantly* ratepayer-funded: users already pay by the gallon,
+so netting their operating costs against *taxes* would be a category error.
+**Reviewer refinement (accepted, queued):** utility *capital* is not purely
+ratepayer money — General Fund allocations flow to some utility capital, and
+System Development Charges on new development fund extensions/upgrades. A later
+pass will trace Vol. 2's interfund transfers and the SDC schedules so the
+tax-touched share of utility capital moves into Frame A rather than being
+written off as enterprise. Instead report **infrastructure
 intensity**: city network feet adjacent to each parcel (2,226 mi of PWB mains;
 BES `OWNRSHIP='BES'` pipes), and network feet per dwelling by density band — the
 long-run maintenance-liability measure that proved decisive in the pilot (an 11×

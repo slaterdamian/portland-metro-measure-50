@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Portland — taxed vs untaxed value per acre</title>
+<script src="https://unpkg.com/deck.gl@9.0.34/dist.min.js"></script>
+<style>html,body{margin:0;height:100%}#app{width:100%;height:100%;position:relative}
+#legend{position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,.92);
+padding:10px 12px;font:12px sans-serif;border-radius:6px;z-index:1;max-width:270px}
+</style></head><body><div id="app"></div>
+<div id="legend"><b>Taxable value per acre</b> — solid bar = Measure-50 assessed
+(taxed) value; faded top = real market value left untaxed. Color = assessed $/acre
+(Urban3 classes, green low &rarr; red/purple high).<br/>
+<i>Data: Metro RLIS (ODbL); basemap &copy; OpenStreetMap contributors</i></div>
+<script>
+const deckgl = new deck.DeckGL({
+  container: 'app',
+  initialViewState: {latitude: 45.53001, longitude: -122.63689, zoom: 11.6, pitch: 55, bearing: -15},
+  controller: true,
+  getTooltip: ({object}) => object && {html:
+    `Assessed (taxed): <b>${object.properties.v}</b><br/>` +
+    `Market: <b>${object.properties.w}</b><br/>` +
+    `Taxed share: <b>${object.properties.p}%</b>`},
+  layers: []
+});
+const osm = new deck.TileLayer({
+  id: 'osm', data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  minZoom: 0, maxZoom: 19, tileSize: 256,
+  renderSubLayers: p => new deck.BitmapLayer(p, {
+    data: null, image: p.data,
+    bounds: [p.tile.boundingBox[0][0], p.tile.boundingBox[0][1],
+             p.tile.boundingBox[1][0], p.tile.boundingBox[1][1]]})
+});
+fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
+  const solid = new deck.GeoJsonLayer({
+    id: 'solid', data, extruded: true, pickable: true, wireframe: false,
+    getElevation: f => f.properties.a,
+    getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, 255],
+    getLineColor: [0, 0, 0, 0]});
+  const ghost = new deck.GeoJsonLayer({
+    id: 'ghost', data, extruded: true, pickable: false, wireframe: false,
+    getElevation: f => f.properties.m,
+    getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, 120],
+    getLineColor: [0, 0, 0, 0],
+    parameters: {depthMask: false},
+    getPolygonOffset: () => [0, -600]});
+  deckgl.setProps({layers: [osm, solid, ghost]});
+});
+</script></body></html>
