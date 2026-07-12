@@ -1,0 +1,8 @@
+# Normalize line endings; keep platform-native in working tree.
+* text=auto
+*.py text
+*.R text
+*.md text
+*.yml text
+*.csv text
+*.geojson text

@@ -1,0 +1,27 @@
+# Conda environment for the Python geoprocessing + 3D-visualization stack.
+# Create:   conda env create -f environment.yml
+# Activate: conda activate vpa
+#
+# NOTE: pinned to Python 3.12 on purpose. As of mid-2026, GDAL/geopandas wheels
+# are not all published for Python 3.14, so 3.12 avoids source-build failures.
+# The KMZ parser (src/parse_kmz.py) is stdlib-only and runs on any Python 3.9+.
+name: vpa
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - gdal
+  - geopandas
+  - shapely
+  - pyogrio
+  - pyproj
+  - fiona
+  - pandas
+  - numpy
+  - matplotlib
+  - mapclassify
+  - pydeck
+  - jupyterlab
+  - pip
+  - pip:
+      - pypdf

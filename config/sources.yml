@@ -1,0 +1,129 @@
+# Source registry — Metro Portland Land Value.
+# Every input is public open data; raw downloads live under "Background Info/"
+# (git-ignored). Update `retrieved` dates when refreshing.
+
+license_note: >
+  Metro RLIS datasets are licensed under the Open Database License (ODbL).
+  Derived works must attribute Metro and share derived databases alike.
+  Attribution used: "Contains information from Metro RLIS (Oregon Metro),
+  licensed under ODbL."
+
+sources:
+  rlis_taxlots_public:
+    file: "Background Info/GIS data/METRO_RLIS_Taxlots_(Public)_-1228633436999156818.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::taxlots-public/about
+    license: ODbL
+    retrieved: 2026-07-11
+    note: >
+      Tri-county taxlots, ownership EXCLUDED by Metro. Key fields: TLID,
+      TAXCODE, ASSESSVAL (Measure-50 AV), TOTALVAL (RMV), A_T_ACRES,
+      JURIS_CITY, PROP_CODE/LANDUSE/STATECLASS, PUBLIC_OWN, OWNERTYPE.
+
+  rlis_taxlot_additional_records:
+    file: "Background Info/GIS data/METRO_RLIS_Taxlot_Additional_Records_(Public).geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::taxlot-additional-records-public/about
+    license: ODbL
+    retrieved: 2026-07-11
+    note: Supplemental account records (stacked/condo accounts); joins on TLID.
+
+  rlis_zoning:
+    file: "Background Info/GIS data/METRO_RLIS_Zoning.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::zoning/about
+    license: ODbL
+    retrieved: 2026-07-11
+    note: Regional zoning; fields ZONE, ZONE_CLASS, ZONEGEN_CL, CITY.
+
+  rlis_housing:
+    file: "Background Info/GIS data/METRO_RLIS_Housing.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/housing/explore
+    license: ODbL
+    retrieved: 2026-07-11
+    note: Regional housing inventory; UNITS, UNIT_TYPE, TLID (dwelling-unit basis).
+
+  rlis_ugb:
+    file: "Background Info/GIS data/METRO_RLIS_Urban_Growth_Boundary_UGB.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::urban-growth-boundary-ugb/about
+    license: ODbL
+    retrieved: 2026-07-11
+
+  rlis_city_limits_line:
+    file: "Background Info/GIS data/METRO_RLIS_City_Limits_(line).geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::city-limits-line/about
+    license: ODbL
+    retrieved: 2026-07-11
+
+  rlis_freeways:
+    file: "Background Info/GIS data/METRO_RLIS_Freeways.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::freeways/about
+    license: ODbL
+    retrieved: 2026-07-11
+
+  rlis_streets:
+    file: "Background Info/GIS data/METRO_RLIS_Streets.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::streets-1/about
+    license: ODbL
+    retrieved: 2026-07-11
+    note: Phase 2 street-network basis (jurisdiction fields to be mapped).
+
+  rlis_sidewalks:
+    file: "Background Info/GIS data/METRO_RLIS_Sidewalks.geojson"
+    publisher: Metro (RLIS Discovery)
+    url: https://rlisdiscovery.oregonmetro.gov/datasets/drcMetro::sidewalks/about
+    license: ODbL
+    retrieved: 2026-07-11
+
+  portland_collection_system:
+    file: "Background Info/GIS data/PORTLAND_Collection_System_Lines.geojson"
+    publisher: City of Portland (BES) via PortlandMaps open data
+    url: https://gis-pdx.opendata.arcgis.com/datasets/PDX::collection-system-lines/about
+    rest: https://www.portlandmaps.com/arcgis/rest/services/Public/Utilities_Sewer/MapServer
+    retrieved: 2026-07-11
+    note: >
+      Sewer + stormwater collection system, 360k lines. OWNRSHIP is plain text
+      (BES = City of Portland Bureau of Environmental Services; also TBD, ODOT,
+      PRIV, PARK, PORT). SYSTEM = SEWER / STORM / INLET.
+
+  multnomah_sal_summary:
+    file: "Background Info/Multnomah County A&T Data/2025-2026-Summary-of-Assessments-and-Taxes.pdf"
+    publisher: Multnomah County Assessment, Recording & Taxation
+    url: https://multco.us/info/reports-and-data
+    retrieved: 2026-07-11
+    note: >
+      District-level levy/rate/compression summary (2 pp). The per-tax-code-area
+      CONSOLIDATED rate table is a separate publication -- still needed for
+      revenue-in-dollars; value-per-acre does not require it.
+
+  washington_sal_summary:
+    file: "Background Info/Multnomah County A&T Data/Summary A&T_Tax Year 2025-2026.pdf"
+    publisher: Washington County Assessment & Taxation
+    note: >
+      Rate detail for the Washington County slice of Portland (383 parcels);
+      code-area consolidated rates on pp. 124-257.
+
+  title33:
+    file: "Background Info/Title 33, Planning & Zoning Code (effective July 1, 2026).PDF"
+    publisher: City of Portland
+    note: >
+      Portland Zoning Code, 1,855 pp, clean text layer. Ch. 33.1xx base zones
+      (33.110 single-dwelling, 33.120 multi-dwelling, 33.130 commercial/mixed,
+      33.140 employment/industrial) carry the dimensional standards for the
+      feasibility phase.
+
+  portland_cip:
+    file: "Background Info/CIPs/fy-2024-25-volume-2-city-of-portland-city-funds-and-capital-projects.pdf"
+    publisher: City of Portland Budget Office
+    url: https://www.portland.gov/budget
+    note: Capital cost side for the fiscal phase.
+
+parameters:
+  jurisdiction_filter: "JURIS_CITY='PORTLAND'"
+  epsg_planar: 2913          # Oregon State Plane North (ft)
+  tax_year: "2025-2026"

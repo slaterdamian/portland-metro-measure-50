@@ -1,0 +1,18 @@
+{
+  "jurisdiction": "City of Portland, OR (RLIS JURIS_CITY=PORTLAND)",
+  "source": "Metro RLIS Taxlots (Public), ODbL; values from county assessors",
+  "tax_year_snapshot": "2025-2026 roll (RLIS current)",
+  "parcels": 233143,
+  "parcels_with_av": 220617,
+  "county_split": {
+    "M": 232433,
+    "W": 383,
+    "C": 327
+  },
+  "total_assessed_value": 76195092116,
+  "total_real_market_value": 192593648660,
+  "citywide_taxed_share": 0.396,
+  "median_av_per_acre": 1913714,
+  "median_taxed_share": 0.442,
+  "distinct_taxcodes": 62
+}

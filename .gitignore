@@ -1,0 +1,30 @@
+# ---- Raw inputs ---------------------------------------------------------
+# Public open-data downloads (large; obtain per docs/data-sources.md).
+# RLIS data is ODbL -- attributed, not redistributed here.
+Background Info/
+
+# ---- Derived geodata ----------------------------------------------------
+# Regenerate with src/10_extract.py .. src/30_render_3d.py
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*.geojson
+
+# Keep small derived summaries under version control:
+!data/processed/phase1_summary.json
+
+# ---- Rendered outputs ---------------------------------------------------
+outputs/figures/*
+!outputs/figures/.gitkeep
+!outputs/figures/value_per_acre_3d_render.png
+
+# ---- Media / local tooling ----------------------------------------------
+*.mp4
+.claude/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.Rhistory
+.RData
+.Rproj.user
+.venv/
+.DS_Store
