@@ -7,7 +7,7 @@ Every parcel's ACTUAL FOOTPRINT is extruded twice on a shared $-per-meter scale:
   * SOLID column   = Measure-50 assessed value per acre (the taxed base),
                      Urban3 classed color.
   * GHOST top      = real market value per acre -- the half-transparent
-                     (alpha 120) extension above the solid bar is the value
+                     (alpha 24) extension above the solid bar is the value
                      Measure 50 leaves untaxed.
 
 Output is a hand-rolled deck.gl page (not pydeck): the parcel GeoJSON is written
@@ -39,7 +39,7 @@ OUT_DATA = Path("outputs/figures/value_stack_data.geojson")
 MIN_ACRES = 0.01
 CLIP_Q = 0.995
 MAX_M = 4200.0
-GHOST_ALPHA = 120     # half-transparent untaxed top (per review feedback)
+GHOST_ALPHA = 24      # untaxed top: half as opaque as the original 45 (review)
 SIMPLIFY_FT = 6.0
 
 BREAKS = [0, 250e3, 500e3, 1e6, 1.5e6, 2e6, 2.5e6, 5e6, 7.5e6, 10e6, 15e6, 20e6, np.inf]
@@ -56,7 +56,9 @@ padding:10px 12px;font:12px sans-serif;border-radius:6px;z-index:1;max-width:270
 </style></head><body><div id="app"></div>
 <div id="legend"><b>Taxable value per acre</b> — solid bar = Measure-50 assessed
 (taxed) value; faded top = real market value left untaxed. Color = assessed $/acre
-(Urban3 classes, green low &rarr; red/purple high).<br/>
+(Urban3 classes, green low &rarr; red/purple high). <b>Taxed share</b> = the
+percentage of a parcel's real market value (RMV) that is actually taxed as
+Measure-50 assessed value (AV).<br/>
 <i>Data: Metro RLIS (ODbL); basemap &copy; OpenStreetMap contributors</i></div>
 <script>
 const deckgl = new deck.DeckGL({
@@ -64,9 +66,9 @@ const deckgl = new deck.DeckGL({
   initialViewState: {latitude: __LAT__, longitude: __LON__, zoom: 11.6, pitch: 55, bearing: -15},
   controller: true,
   getTooltip: ({object}) => object && {html:
-    `Assessed (taxed): <b>${object.properties.v}</b><br/>` +
-    `Market: <b>${object.properties.w}</b><br/>` +
-    `Taxed share: <b>${object.properties.p}%</b>`},
+    `Assessed (taxed): <b>${object.properties.t}</b> &middot; ${object.properties.v}<br/>` +
+    `Real market: <b>${object.properties.u}</b> &middot; ${object.properties.w}<br/>` +
+    `Taxed share: <b>${object.properties.p}%</b> of market value`},
   layers: []
 });
 const osm = new deck.TileLayer({
@@ -116,10 +118,17 @@ def main():
     g["b"] = [RGB[k][2] for k in cls]
     g["v"] = (g["assessed_value_per_acre"] / 1000).round(0).map("${:,.0f}k/ac".format)
     g["w"] = (g["rmvpa"] / 1000).round(0).map("${:,.0f}k/ac".format)
+
+    def money(x):
+        if x >= 1e9: return f"${x/1e9:.2f}B"
+        if x >= 1e6: return f"${x/1e6:.2f}M"
+        return f"${x/1e3:,.0f}k"
+    g["t"] = g["av"].map(money)
+    g["u"] = np.maximum(g["rmv"].fillna(0), g["av"]).map(money)
     print(f"parcels: {len(g):,}  clip ${cap:,.0f}/ac  "
           f"median taxed share {g['p'].median():.0f}%")
 
-    out = g[["a", "m", "p", "r", "g", "b", "v", "w", "geometry"]].to_crs(4326)
+    out = g[["a", "m", "p", "r", "g", "b", "v", "w", "t", "u", "geometry"]].to_crs(4326)
     out["geometry"] = shapely.set_precision(out.geometry.values, 1e-6)
     out = out[~out.geometry.is_empty]
     cen = out.geometry.union_all().centroid

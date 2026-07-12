@@ -7,7 +7,9 @@ padding:10px 12px;font:12px sans-serif;border-radius:6px;z-index:1;max-width:270
 </style></head><body><div id="app"></div>
 <div id="legend"><b>Taxable value per acre</b> — solid bar = Measure-50 assessed
 (taxed) value; faded top = real market value left untaxed. Color = assessed $/acre
-(Urban3 classes, green low &rarr; red/purple high).<br/>
+(Urban3 classes, green low &rarr; red/purple high). <b>Taxed share</b> = the
+percentage of a parcel's real market value (RMV) that is actually taxed as
+Measure-50 assessed value (AV).<br/>
 <i>Data: Metro RLIS (ODbL); basemap &copy; OpenStreetMap contributors</i></div>
 <script>
 const deckgl = new deck.DeckGL({
@@ -15,9 +17,9 @@ const deckgl = new deck.DeckGL({
   initialViewState: {latitude: 45.53001, longitude: -122.63689, zoom: 11.6, pitch: 55, bearing: -15},
   controller: true,
   getTooltip: ({object}) => object && {html:
-    `Assessed (taxed): <b>${object.properties.v}</b><br/>` +
-    `Market: <b>${object.properties.w}</b><br/>` +
-    `Taxed share: <b>${object.properties.p}%</b>`},
+    `Assessed (taxed): <b>${object.properties.t}</b> &middot; ${object.properties.v}<br/>` +
+    `Real market: <b>${object.properties.u}</b> &middot; ${object.properties.w}<br/>` +
+    `Taxed share: <b>${object.properties.p}%</b> of market value`},
   layers: []
 });
 const osm = new deck.TileLayer({
@@ -37,7 +39,7 @@ fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
   const ghost = new deck.GeoJsonLayer({
     id: 'ghost', data, extruded: true, pickable: false, wireframe: false,
     getElevation: f => f.properties.m,
-    getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, 120],
+    getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, 24],
     getLineColor: [0, 0, 0, 0],
     parameters: {depthMask: false},
     getPolygonOffset: () => [0, -600]});
