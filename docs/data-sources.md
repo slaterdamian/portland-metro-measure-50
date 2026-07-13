@@ -42,9 +42,9 @@ Portal: https://rlisdiscovery.oregonmetro.gov — prefer the **GeoJSON** exports
 | Document | Used for | Status |
 |---|---|---|
 | Multnomah **Summary of Assessments & Taxes 2025-26** | District-level levies, rates, Measure-5 compression | ✅ in hand (2 pp district table) |
-| Multnomah **tax-code-area consolidated rate table** | AV → tax dollars per parcel (62 Portland code areas) | ⚠️ **pending** — separate publication, multco.us/info/reports-and-data |
+| Multnomah **Levy Code Rates 2025-26** | AV → tax dollars per parcel (consolidated rate per code area; 139 areas) | ✅ in hand, parsed by `src/40_tax_rates.py` |
 | Washington County Summary of A&T 2025-26 | Rates for the 383 Portland parcels in Washington County | ✅ in hand (code-area rates pp. 124–257) |
-| Clackamas equivalent | 327 Portland parcels | pending (minor) |
+| Clackamas **SAL Table 6a 2025** (xlsx) | Rates for the 327 Portland parcels in Clackamas County (357 TCAs) | ✅ in hand, parsed |
 
 ## Known data caveats
 
@@ -56,5 +56,5 @@ Portal: https://rlisdiscovery.oregonmetro.gov — prefer the **GeoJSON** exports
   327 C parcels). Rate joins must be county-aware — the counties use different
   `TAXCODE` formats (Multnomah `201`, Washington `051.50`).
 - **The taxed share is ~40% citywide** (AV $76.2B / RMV $192.6B): Measure 50
-  suppresses Portland's taxable base more than the suburbs (Beaverton measured
-  ~54% in the archived pilot). State every result as AV- or RMV-based.
+  suppresses Portland's taxable base substantially more than suburban
+  jurisdictions. State every result as AV- or RMV-based.

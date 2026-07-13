@@ -22,8 +22,8 @@ SOFTWARE.
 
 ----------------------------------------------------------------------------
 NOTE ON DATA: The MIT license above covers the SOURCE CODE only. The input
-datasets (Washington County assessment & taxation data, City of Beaverton GIS
-layers, budgets, CIPs, and the Development Code) are the property of their
-respective public agencies and are governed by those agencies' terms of use.
-They are not redistributed in this repository. See docs/data-sources.md for
-provenance and how to obtain each dataset.
+datasets (Metro RLIS layers under ODbL; City of Portland GIS, budget, and
+zoning-code publications; county assessment & taxation publications) are the
+property of their respective public agencies and are governed by those
+agencies' terms of use. They are not redistributed in this repository. See
+docs/data-sources.md for provenance and how to obtain each dataset.

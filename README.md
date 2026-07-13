@@ -1,4 +1,4 @@
-# Metro Portland Land Value
+# Portland Metro & Measure 50
 
 *A fiscal analysis of land use in Portland, Oregon — modeling taxable value,
 revenue, and municipal cost per acre in the tradition of

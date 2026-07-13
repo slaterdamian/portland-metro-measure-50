@@ -1,22 +1,29 @@
 #!/usr/bin/env python3
 """
-35_stacked_3d.py  --  Interactive parcel map, Portland OR: two modes in one page.
+35_stacked_3d.py  --  Interactive parcel map, Portland OR: three modes, one page.
 
-  VALUE mode (default)  stacked AV/RMV: solid column = Measure-50 assessed value
-                        per acre (Urban3 classed color); ghost top = real market
-                        value left untaxed (alpha 24, opaque black wireframe edges
-                        so the transparent portion reads).
-  NET mode (toggle)     Annapolis-style "Revenues & Costs Per Acre": height =
-                        |net $ per acre| (city property tax minus allocated
-                        tax-supported services, Frame A2 demand basis, stage 80);
-                        black ramp = net positive, orange/red = net negative.
+  VALUE (default)   stacked AV/RMV: solid column = Measure-50 assessed value per
+                    acre (Urban3 classed color); ghost top = real market value
+                    left untaxed (alpha 24, opaque black wireframe edges).
+  NET               Annapolis-style Revenues & Costs per acre (Frame A2 demand
+                    basis, stage 80): black = net positive, orange = negative.
+  SHARE-ADJUSTED    controls for the citywide 54.1% property-tax funding mix
+                    (A1 redistribution net): orange = relative freeloaders.
 
-A button in the top-right switches modes; the legend and tooltip follow.
+Interactions:
+  * top-right button cycles the three modes
+  * CLICK a bar to lock a selection -- all other bars fade, a detail panel shows
+    the address and full value/tax/net figures; the lock persists across mode
+    switches so one parcel can be compared in all three views. Click empty
+    ground (or the panel's x) to clear.
+  * SEARCH box (top-left): parcel addresses are matched locally first; anything
+    else (landmarks, intersections) falls through to OSM Nominatim geocoding,
+    bounded to the Portland area.
 
 Architecture: hand-rolled deck.gl page; ONE external GeoJSON payload shared by
-all layers (pydeck's per-layer inlining hit 400 MB). Ghost z-fighting handled by
-polygon offset. Basemap: OpenStreetMap raster tiles ((c) OpenStreetMap
-contributors). Needs internet for tiles + deck.gl CDN; serve the folder locally.
+all layers. Ghost z-fighting handled by polygon offset. Basemap: OpenStreetMap
+raster tiles ((c) OpenStreetMap contributors; search (c) Nominatim/OSM).
+Needs internet for tiles + deck.gl CDN; serve the folder locally.
 
 Run:  conda run -n vpa python src/35_stacked_3d.py
 Outputs:
@@ -40,8 +47,8 @@ OUT_DATA = Path("outputs/figures/value_stack_data.geojson")
 
 MIN_ACRES = 0.01
 CLIP_Q = 0.995
-MAX_M = 4200.0        # metres at the clipped RMV maximum (value mode)
-MAX_M_NET = 3200.0    # metres at the clipped |net|/acre maximum (net mode)
+MAX_M = 4200.0
+MAX_M_NET = 3200.0
 NET_CLIP_Q = 0.975
 GHOST_ALPHA = 24
 SIMPLIFY_FT = 6.0
@@ -52,7 +59,7 @@ HEX = ["#9e9e9e", "#1b5e20", "#388e3c", "#4caf50", "#8bc34a", "#c5e1a5",
 RGB = [[int(h[1:3], 16), int(h[3:5], 16), int(h[5:7], 16)] for h in HEX]
 
 TEMPLATE = """<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Portland — value & fiscal net per acre</title>
+<html><head><meta charset="utf-8"><title>Portland Metro &amp; Measure 50</title>
 <script src="https://unpkg.com/deck.gl@9.0.34/dist.min.js"></script>
 <style>html,body{margin:0;height:100%}#app{width:100%;height:100%;position:relative}
 #legend{position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,.93);
@@ -61,16 +68,30 @@ padding:10px 12px;font:12px sans-serif;border-radius:6px;z-index:1;max-width:290
 background:#fff;border:1px solid #999;border-radius:6px;padding:8px 14px;
 cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 #toggle:hover{background:#f0f0f0}
+#searchwrap{position:absolute;top:14px;left:14px;z-index:2}
+#search{width:260px;font:13px sans-serif;padding:8px 10px;border:1px solid #999;
+border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+#panel{position:absolute;top:56px;left:14px;z-index:2;background:rgba(255,255,255,.96);
+border:1px solid #888;border-radius:6px;padding:10px 12px;font:12px sans-serif;
+max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+#panel .x{float:right;cursor:pointer;font-weight:bold;padding:0 4px;color:#666}
+#panel .x:hover{color:#000}
+#panel h4{margin:0 22px 6px 0;font-size:13px}
+#panel td{padding:1px 6px 1px 0;vertical-align:top}
 </style></head><body><div id="app"></div>
+<div id="searchwrap"><input id="search"
+  placeholder="Search address or landmark&hellip;" /></div>
+<div id="panel"></div>
 <button id="toggle">Show: Revenues &amp; Costs</button>
 <div id="legend"></div>
 <script>
 const LEGEND_VALUE = `<b>Taxable value per acre</b> — solid bar = Measure-50
-assessed (taxed) value; faded top (thin black edges) = real market value left
+assessed (taxed) value; faded top (black edges) = real market value left
 untaxed. Color = assessed $/acre (Urban3 classes, green low &rarr; red/purple
 high). <b>Taxed share</b> = the percentage of a parcel's real market value (RMV)
 that is actually taxed as Measure-50 assessed value (AV).<br/>
-<i>Data: Metro RLIS (ODbL); basemap &copy; OpenStreetMap contributors</i>`;
+<i>Data: Metro RLIS (ODbL); basemap &copy; OpenStreetMap contributors;
+search &copy; Nominatim/OSM</i>`;
 const LEGEND_NET = `<b>Revenues &amp; costs per acre</b> — height = |net $ per
 acre|: the parcel's City of Portland property tax minus its allocated share of
 tax-supported city services (FY2025-26 General Fund + FPDR, demand basis).
@@ -80,7 +101,7 @@ property tax covers ~54% of these services — business taxes and fees fund the
 rest, so net-negative here is not automatically "freeloading" (see the
 share-adjusted view).<br/>
 <i>Data: Metro RLIS (ODbL), FY2025-26 Adopted Budget; basemap &copy;
-OpenStreetMap contributors</i>`;
+OpenStreetMap contributors; search &copy; Nominatim/OSM</i>`;
 const LEGEND_CARRY = `<b>Share-adjusted net per acre</b> &mdash; controls for the
 citywide funding mix: property tax covers 54.1% of tax-supported city services
 overall, so a parcel &quot;carries its share&quot; when its own tax covers at
@@ -90,22 +111,28 @@ least 54.1% of its allocated cost. <span style="color:#141414"><b>Black</b></spa
 relative freeloaders, with the 54% gap controlled for. Height =
 |share-adjusted net $ per acre|.<br/>
 <i>Data: Metro RLIS (ODbL), FY2025-26 Adopted Budget; basemap &copy;
-OpenStreetMap contributors</i>`;
+OpenStreetMap contributors; search &copy; Nominatim/OSM</i>`;
 
-const NCAP = __NCAP__;    // $/acre at full height, coverage net
-const NCAP2 = __NCAP2__;  // $/acre at full height, share-adjusted net
+const NCAP = __NCAP__;
+const NCAP2 = __NCAP2__;
 const MODES = ['value', 'net', 'carry'];
 const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
                     carry: 'Share-Adjusted Net'};
 let mode = 'value';
+let selectedI = -1;
+let selectedProps = null;
+let DATA = null;
+
 const deckgl = new deck.DeckGL({
   container: 'app',
   initialViewState: {latitude: __LAT__, longitude: __LON__, zoom: 11.6, pitch: 55, bearing: -15},
   controller: true,
+  onClick: info => { info.object ? select(info.object.properties) : deselect(); },
   getTooltip: ({object}) => {
     if (!object) return null;
     const p = object.properties;
     if (mode === 'value') return {html:
+      `<b>${p.s || 'no address'}</b><br/>` +
       `Assessed (taxed): <b>${p.t}</b> &middot; ${p.v}<br/>` +
       `Real market: <b>${p.u}</b> &middot; ${p.w}<br/>` +
       `Taxed share: <b>${p.p}%</b> of market value`};
@@ -115,6 +142,7 @@ const deckgl = new deck.DeckGL({
     const sa = pa < 0 ? '&minus;' : '+';
     const label = mode === 'net' ? 'Net vs city services' : 'Share-adjusted net';
     return {html:
+      `<b>${p.s || 'no address'}</b><br/>` +
       `Assessed (taxed): <b>${p.t}</b> &middot; Market: <b>${p.u}</b><br/>` +
       `City tax paid: <b>$${p.c.toLocaleString()}</b><br/>` +
       `${label}: <b>${s}$${Math.abs(tot).toLocaleString()}</b>` +
@@ -130,38 +158,68 @@ const osm = new deck.TileLayer({
     bounds: [p.tile.boundingBox[0][0], p.tile.boundingBox[0][1],
              p.tile.boundingBox[1][0], p.tile.boundingBox[1][1]]})
 });
-function netColor(q, cap) {
+function netColor(q, cap, alpha) {
   const t = Math.min(Math.abs(q) / cap, 1), f = Math.max(t, 0.08);
-  if (q > 0) {  // grey -> black
-    const c0 = [217, 217, 217], c1 = [20, 20, 20];
-    return c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
-  }             // light orange -> dark red-brown
-  const c0 = [253, 208, 162], c1 = [140, 45, 4];
-  return c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
+  const [c0, c1] = q > 0 ? [[217, 217, 217], [20, 20, 20]]
+                         : [[253, 208, 162], [140, 45, 4]];
+  const rgb = c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
+  return [rgb[0], rgb[1], rgb[2], alpha];
 }
-let DATA = null;
+function fadeAlpha(f, full, dim) {
+  return (selectedI < 0 || f.properties.i === selectedI) ? full : dim;
+}
 function layersFor(m) {
+  const trig = {getFillColor: [selectedI, m], getLineColor: [selectedI, m]};
   if (m === 'value') return [osm,
     new deck.GeoJsonLayer({id: 'solid', data: DATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => f.properties.a,
-      getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, 255],
-      getLineColor: [0, 0, 0, 0]}),
+      getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
+                          fadeAlpha(f, 255, 60)],
+      getLineColor: [0, 0, 0, 0], updateTriggers: trig}),
     new deck.GeoJsonLayer({id: 'ghost', data: DATA, extruded: true,
       pickable: false, wireframe: true,
       getElevation: f => f.properties.m,
-      getFillColor: f => [f.properties.r, f.properties.g, f.properties.b, __GA__],
-      getLineColor: [0, 0, 0, 255], lineWidthMinPixels: 1,
+      getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
+                          fadeAlpha(f, __GA__, 5)],
+      getLineColor: f => [0, 0, 0, fadeAlpha(f, 255, 35)],
+      lineWidthMinPixels: 1,
       parameters: {depthMask: false},
-      getPolygonOffset: () => [0, -600]})];
+      getPolygonOffset: () => [0, -600], updateTriggers: trig})];
   const field = m === 'net' ? 'q' : 'q2';
   const cap = m === 'net' ? NCAP : NCAP2;
   return [osm,
     new deck.GeoJsonLayer({id: 'net-' + m, data: DATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => Math.min(Math.abs(f.properties[field]) / cap, 1) * __MAXNET__,
-      getFillColor: f => netColor(f.properties[field], cap),
-      getLineColor: [0, 0, 0, 0]})];
+      getFillColor: f => netColor(f.properties[field], cap, fadeAlpha(f, 255, 55)),
+      getLineColor: [0, 0, 0, 0], updateTriggers: trig})];
+}
+function panel() {
+  const el = document.getElementById('panel');
+  if (!selectedProps) { el.style.display = 'none'; return; }
+  const p = selectedProps;
+  const sN = p.nt < 0 ? '&minus;' : '+', sQ = p.q < 0 ? '&minus;' : '+';
+  const sN2 = p.n2 < 0 ? '&minus;' : '+', sQ2 = p.q2 < 0 ? '&minus;' : '+';
+  el.innerHTML =
+    `<span class="x" onclick="deselect()">&times;</span>` +
+    `<h4>${p.s || '(no address on record)'}</h4><table>` +
+    `<tr><td>Assessed (taxed)</td><td><b>${p.t}</b> &middot; ${p.v}</td></tr>` +
+    `<tr><td>Real market</td><td><b>${p.u}</b> &middot; ${p.w}</td></tr>` +
+    `<tr><td>Taxed share</td><td><b>${p.p}%</b> of market</td></tr>` +
+    `<tr><td>City tax paid</td><td><b>$${p.c.toLocaleString()}</b>/yr</td></tr>` +
+    `<tr><td>Net vs services</td><td><b>${sN}$${Math.abs(p.nt).toLocaleString()}</b>` +
+    ` &middot; ${sQ}$${Math.abs(p.q).toLocaleString()}/ac</td></tr>` +
+    `<tr><td>Share-adjusted</td><td><b>${sN2}$${Math.abs(p.n2).toLocaleString()}</b>` +
+    ` &middot; ${sQ2}$${Math.abs(p.q2).toLocaleString()}/ac</td></tr></table>` +
+    `<i style="color:#777">Selection locked — switch views to compare.</i>`;
+  el.style.display = 'block';
+}
+function select(props) { selectedI = props.i; selectedProps = props; panel(); render(); }
+function deselect() { selectedI = -1; selectedProps = null; panel(); render(); }
+function flyTo(lon, lat, zoom) {
+  deckgl.setProps({initialViewState: {longitude: lon, latitude: lat, zoom: zoom,
+    pitch: 55, bearing: -15, transitionDuration: 900}});
 }
 function render() {
   const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY};
@@ -174,6 +232,30 @@ document.getElementById('toggle').onclick = () => {
   mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
   render();
 };
+document.getElementById('search').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const q = e.target.value.trim();
+  if (!q || !DATA) return;
+  const qn = q.toUpperCase();
+  const hit = DATA.features.find(f =>
+    f.properties.s && f.properties.s.toUpperCase().startsWith(qn)) ||
+    DATA.features.find(f =>
+    f.properties.s && f.properties.s.toUpperCase().includes(qn));
+  if (hit) {
+    select(hit.properties);
+    flyTo(hit.properties.x, hit.properties.y, 16);
+    return;
+  }
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1' +
+        '&viewbox=-122.85,45.66,-122.44,45.42&bounded=1&q=' +
+        encodeURIComponent(q))
+    .then(r => r.json()).then(res => {
+      if (res.length) flyTo(parseFloat(res[0].lon), parseFloat(res[0].lat), 15.5);
+      else e.target.style.borderColor = '#c0392b';
+    }).catch(() => {});
+});
+document.getElementById('search').addEventListener('input',
+  e => { e.target.style.borderColor = '#999'; });
 fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
   DATA = data;
   render();
@@ -198,7 +280,6 @@ def main():
     g = g[g.geometry.notna() & ~g.geometry.is_empty].copy()
     g["geometry"] = g.geometry.make_valid().simplify(SIMPLIFY_FT)
 
-    # ---- net fields from the Frame A allocation (stage 80) --------------------
     n = gpd.read_file(NET, ignore_geometry=True,
                       columns=["TLID", "city_tax", "net_a2_demand", "net_a1_demand"])
     n["tl"] = n["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
@@ -215,7 +296,6 @@ def main():
     ncap = float(np.quantile(np.abs(g.loc[g["q"] != 0, "q"]), NET_CLIP_Q))
     ncap2 = float(np.quantile(np.abs(g.loc[g["q2"] != 0, "q2"]), NET_CLIP_Q))
 
-    # ---- value-mode fields -----------------------------------------------------
     g["rmvpa"] = np.maximum(g["rmv_per_acre"].fillna(0), g["assessed_value_per_acre"])
     cap = float(np.quantile(g["rmvpa"], CLIP_Q))
     scale = MAX_M / cap
@@ -230,10 +310,19 @@ def main():
     g["w"] = (g["rmvpa"] / 1000).round(0).map("${:,.0f}k/ac".format)
     g["t"] = g["av"].map(money)
     g["u"] = np.maximum(g["rmv"].fillna(0), g["av"]).map(money)
+
+    # selection / search fields
+    g = g.reset_index(drop=True)
+    g["i"] = g.index.astype(int)
+    g["s"] = g["SITEADDR"].fillna("").astype(str).str.strip()
+    cen4326 = g.geometry.centroid.to_crs(4326)
+    g["x"] = cen4326.x.round(5)
+    g["y"] = cen4326.y.round(5)
+
     print(f"parcels: {len(g):,}  value clip ${cap:,.0f}/ac  net clip ${ncap:,.0f}/ac  "
           f"median taxed share {g['p'].median():.0f}%")
 
-    out = g[["a", "m", "p", "r", "g", "b", "v", "w", "t", "u",
+    out = g[["i", "s", "x", "y", "a", "m", "p", "r", "g", "b", "v", "w", "t", "u",
              "q", "q2", "nt", "n2", "c", "geometry"]].to_crs(4326)
     out["geometry"] = shapely.set_precision(out.geometry.values, 1e-6)
     out = out[~out.geometry.is_empty]
