@@ -183,7 +183,7 @@ document.getElementById('search').addEventListener('keydown', e => {
     f.properties.s && f.properties.s.toUpperCase().includes(qn));
   if (hit) {
     select(hit.properties);
-    flyTo(hit.properties.x, hit.properties.y, 16);
+    flyTo(hit.properties.x, hit.properties.y, 15);
     return;
   }
   fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1' +
