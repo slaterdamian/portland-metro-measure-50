@@ -82,6 +82,7 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <div id="searchwrap"><input id="search"
   placeholder="Search address or landmark&hellip;" /></div>
 <div id="panel"></div>
+<div id="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);z-index:5;font:15px sans-serif;color:#333">Loading 192,600 parcels (~20 MB compressed)&hellip;</div>
 <button id="toggle">Show: Revenues &amp; Costs</button>
 <div id="legend"></div>
 <script>
@@ -258,6 +259,7 @@ document.getElementById('search').addEventListener('input',
   e => { e.target.style.borderColor = '#999'; });
 fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
   DATA = data;
+  document.getElementById('loading').style.display = 'none';
   render();
 });
 </script></body></html>

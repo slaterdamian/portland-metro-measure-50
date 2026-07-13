@@ -7,6 +7,14 @@ revenue, and municipal cost per acre in the tradition of
 data, and extending into a zoning-feasibility question: what density does land
 *need* to pay for the services it consumes, and does the zoning code allow it?*
 
+> ### 🌐 [Explore the interactive map →](https://slaterdamian.github.io/portland-metro-measure-50/)
+> All 192,600 Portland parcels in 3D, three views in one page: **taxable value**
+> (solid = taxed Measure-50 value, ghost top = untaxed market value),
+> **revenues & costs** (Annapolis-style fiscal net), and **share-adjusted net**
+> (relative freeloaders with the funding mix controlled for). Click a parcel to
+> lock and compare it across views; search any address or landmark.
+> *~20 MB download on first load.*
+
 > **Status: rebuild in progress.** This project was restarted on exclusively
 > public, redistributable sources (Metro RLIS Discovery, Portland open data,
 > county assessor publications). Phase 1 (value per acre) is implemented;
