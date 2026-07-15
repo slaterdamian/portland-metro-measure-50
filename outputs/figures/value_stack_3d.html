@@ -2,8 +2,10 @@
 <html><head><meta charset="utf-8"><title>Portland Metro &amp; Measure 50</title>
 <script src="https://unpkg.com/deck.gl@9.0.34/dist.min.js"></script>
 <style>html,body{margin:0;height:100%}#app{width:100%;height:100%;position:relative}
-#legend{position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,.93);
-padding:10px 12px;font:12px sans-serif;border-radius:6px;z-index:1;max-width:290px}
+#legend{position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,.95);
+padding:11px 13px;font:12px/1.45 sans-serif;border-radius:6px;z-index:1;max-width:330px;
+box-shadow:0 1px 6px rgba(0,0,0,.25)}
+#legend small{color:#666}
 #toggle{position:absolute;top:14px;right:14px;z-index:1;font:13px sans-serif;
 background:#fff;border:1px solid #999;border-radius:6px;padding:8px 14px;
 cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
@@ -11,7 +13,7 @@ cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 #searchwrap{position:absolute;top:14px;left:14px;z-index:2}
 #search{width:260px;font:13px sans-serif;padding:8px 10px;border:1px solid #999;
 border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
-#panel{position:absolute;top:56px;left:14px;z-index:2;background:rgba(255,255,255,.96);
+#panel{position:absolute;top:56px;left:14px;z-index:2;background:rgba(255,255,255,.97);
 border:1px solid #888;border-radius:6px;padding:10px 12px;font:12px sans-serif;
 max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 #panel .x{float:right;cursor:pointer;font-weight:bold;padding:0 4px;color:#666}
@@ -22,40 +24,53 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <div id="searchwrap"><input id="search"
   placeholder="Search address or landmark&hellip;" /></div>
 <div id="panel"></div>
-<div id="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);z-index:5;font:15px sans-serif;color:#333">Loading 192,600 parcels (~20 MB compressed)&hellip;</div>
+<div id="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);z-index:5;font:15px sans-serif;color:#333">Loading ~190,000 parcels (~20&nbsp;MB compressed)&hellip;</div>
 <button id="toggle">Show: Revenues &amp; Costs</button>
 <div id="legend"></div>
 <script>
-const LEGEND_VALUE = `<b>Taxable value per acre</b> — solid bar = Measure-50
-assessed (taxed) value; faded top (black edges) = real market value left
-untaxed. Color = assessed $/acre (Urban3 classes, green low &rarr; red/purple
-high). <b>Taxed share</b> = the percentage of a parcel's real market value (RMV)
-that is actually taxed as Measure-50 assessed value (AV).<br/>
-<i>Data: Metro RLIS (ODbL); basemap &copy; OpenStreetMap contributors;
-search &copy; Nominatim/OSM</i>`;
-const LEGEND_NET = `<b>Revenues &amp; costs per acre</b> — height = |net $ per
-acre|: the parcel's City of Portland property tax minus its allocated share of
-tax-supported city services (FY2025-26 General Fund + FPDR, demand basis).
-<span style="color:#141414"><b>Black</b></span> = net positive,
-<span style="color:#a63603"><b>orange/red</b></span> = net negative. Citywide,
-property tax covers ~54% of these services — business taxes and fees fund the
-rest, so net-negative here is not automatically "freeloading" (see the
-share-adjusted view).<br/>
-<i>Data: Metro RLIS (ODbL), FY2025-26 Adopted Budget; basemap &copy;
-OpenStreetMap contributors; search &copy; Nominatim/OSM</i>`;
-const LEGEND_CARRY = `<b>Share-adjusted net per acre</b> &mdash; controls for the
-citywide funding mix: property tax covers 54.1% of tax-supported city services
-overall, so a parcel &quot;carries its share&quot; when its own tax covers at
-least 54.1% of its allocated cost. <span style="color:#141414"><b>Black</b></span>
-= carries MORE than its proportional share;
-<span style="color:#a63603"><b>orange/red</b></span> = carries less &mdash; the
-relative freeloaders, with the 54% gap controlled for. Height =
-|share-adjusted net $ per acre|.<br/>
-<i>Data: Metro RLIS (ODbL), FY2025-26 Adopted Budget; basemap &copy;
-OpenStreetMap contributors; search &copy; Nominatim/OSM</i>`;
+const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
+area into focus. Click a bar to pin its details (the pin follows you across
+views); click empty ground to clear. Condo &amp; townhome units are drawn
+individually, with their shared land split evenly per unit.<br/>
+Data: Metro RLIS (ODbL) &middot; FY2025-26 Adopted Budget &middot; basemap
+&copy; OpenStreetMap contributors &middot; search &copy; Nominatim/OSM</small>`;
+const LEGEND_VALUE = `<b>1 &middot; What the land is worth &mdash; and what
+Oregon actually taxes.</b><br/>
+Each bar is one tax lot on its real footprint. The <b>solid bar</b> is its
+assessed value per acre &mdash; the only value Oregon taxes (Measure 50). The
+<b>outlined faded top</b> extends to its real market value: everything above
+the solid bar is untaxed. Color = assessed $/acre, green (low) &rarr; red &rarr;
+purple (high).<br/>
+<b>How to read it:</b> tall, warm-colored bars are the land carrying the tax
+base. The bigger a bar's faded top, the more of its market value Measure 50
+shelters &mdash; citywide, the median lot is taxed on just <b>42%</b> of what
+it's worth.<br/>` + FOOT;
+const LEGEND_NET = `<b>2 &middot; Does each lot's city tax cover the city
+services allocated to it?</b><br/>
+Height = the gap, in $ per acre, between what the lot pays the City of Portland
+in property tax and its allocated share of tax-supported services (FY2025-26
+police, fire, parks, pension &amp; administration, allocated by dwellings and
+building area). <b><span style="color:#141414">Black</span></b> = pays more
+than its share of costs; <b><span style="color:#a63603">orange/red</span></b> =
+pays less.<br/>
+<b>How to read it:</b> the map runs mostly orange because property tax funds
+only ~54% of these services citywide &mdash; business taxes and fees cover the
+rest. So orange here is <i>not</i> automatically freeloading; view 3 corrects
+for that.<br/>` + FOOT;
+const LEGEND_CARRY = `<b>3 &middot; The fair freeloader test.</b><br/>
+Same comparison as view 2, but graded on the curve of how Portland actually
+funds itself: since property tax covers 54.1% of tax-supported services
+citywide, a lot &quot;carries its share&quot; when its own tax covers at least
+54.1% of its allocated cost. <b><span style="color:#141414">Black</span></b> =
+carries more than its share (it subsidizes others);
+<b><span style="color:#a63603">orange/red</span></b> = carries less (it is
+subsidized). Height = the surplus or shortfall per acre.<br/>
+<b>How to read it:</b> orange in THIS view means below-average contribution
+even after accounting for the funding mix &mdash; the honest freeloader
+signal.<br/>` + FOOT;
 
-const NCAP = 90720;
-const NCAP2 = 76634;
+const NCAP = 86074;
+const NCAP2 = 64557;
 const MODES = ['value', 'net', 'carry'];
 const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
                     carry: 'Share-Adjusted Net'};
@@ -63,11 +78,25 @@ let mode = 'value';
 let selectedI = -1;
 let selectedProps = null;
 let DATA = null;
+let vc = {x: -122.63690, y: 45.53001, zoom: 11.6};
+let vcTimer = null;
 
 const deckgl = new deck.DeckGL({
   container: 'app',
-  initialViewState: {latitude: 45.53001, longitude: -122.63689, zoom: 11.6, pitch: 55, bearing: -15},
+  initialViewState: {latitude: 45.53001, longitude: -122.63690, zoom: 11.6, pitch: 55, bearing: -15},
   controller: true,
+  onViewStateChange: ({viewState}) => {
+    clearTimeout(vcTimer);
+    vcTimer = setTimeout(() => {
+      // re-render the fade only for meaningful moves (attribute rebuild is heavy)
+      const degPerPx = 360 / (512 * Math.pow(2, viewState.zoom));
+      const moved = Math.hypot(viewState.longitude - vc.x, viewState.latitude - vc.y);
+      if (moved < window.innerHeight * 0.12 * degPerPx &&
+          Math.abs(viewState.zoom - vc.zoom) < 0.4) return;
+      vc = {x: viewState.longitude, y: viewState.latitude, zoom: viewState.zoom};
+      render();
+    }, 300);
+  },
   onClick: info => { info.object ? select(info.object.properties) : deselect(); },
   getTooltip: ({object}) => {
     if (!object) return null;
@@ -99,42 +128,59 @@ const osm = new deck.TileLayer({
     bounds: [p.tile.boundingBox[0][0], p.tile.boundingBox[0][1],
              p.tile.boundingBox[1][0], p.tile.boundingBox[1][1]]})
 });
-function netColor(q, cap, alpha) {
+function netColor(q, cap) {
   const t = Math.min(Math.abs(q) / cap, 1), f = Math.max(t, 0.08);
   const [c0, c1] = q > 0 ? [[217, 217, 217], [20, 20, 20]]
                          : [[253, 208, 162], [140, 45, 4]];
-  const rgb = c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
-  return [rgb[0], rgb[1], rgb[2], alpha];
+  return c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
 }
-function fadeAlpha(f, full, dim) {
-  return (selectedI < 0 || f.properties.i === selectedI) ? full : dim;
+// radial focus: full strength near the view center, lightest at the edges
+function radial(f) {
+  const degPerPx = 360 / (512 * Math.pow(2, vc.zoom));
+  const rFull = window.innerHeight * 0.28 * degPerPx;
+  const rEdge = window.innerHeight * 0.85 * degPerPx;
+  const dx = (f.properties.x - vc.x) * Math.cos(vc.y * Math.PI / 180);
+  const dy = f.properties.y - vc.y;
+  const d = Math.hypot(dx, dy);
+  if (d <= rFull) return 1;
+  if (d >= rEdge) return 0.22;
+  return 1 - 0.78 * (d - rFull) / (rEdge - rFull);
+}
+function fadeF(f) {
+  const s = (selectedI < 0 || f.properties.i === selectedI) ? 1 : 0.22;
+  return Math.min(radial(f), s);
+}
+function trig() {
+  return [selectedI, mode, vc.x.toFixed(3), vc.y.toFixed(3),
+          Math.round(vc.zoom * 4)];
 }
 function layersFor(m) {
-  const trig = {getFillColor: [selectedI, m], getLineColor: [selectedI, m]};
+  const t = {getFillColor: trig(), getLineColor: trig()};
   if (m === 'value') return [osm,
     new deck.GeoJsonLayer({id: 'solid', data: DATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => f.properties.a,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
-                          fadeAlpha(f, 255, 60)],
-      getLineColor: [0, 0, 0, 0], updateTriggers: trig}),
+                          Math.round(255 * fadeF(f))],
+      getLineColor: [0, 0, 0, 0], updateTriggers: t}),
     new deck.GeoJsonLayer({id: 'ghost', data: DATA, extruded: true,
       pickable: false, wireframe: true,
       getElevation: f => f.properties.m,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
-                          fadeAlpha(f, 24, 5)],
-      getLineColor: f => [0, 0, 0, fadeAlpha(f, 255, 35)],
+                          Math.round(56 * fadeF(f))],
+      getLineColor: [0, 0, 0, 255],   // outline always fully opaque
       lineWidthMinPixels: 1,
       parameters: {depthMask: false},
-      getPolygonOffset: () => [0, -600], updateTriggers: trig})];
+      getPolygonOffset: () => [0, -600], updateTriggers: t})];
   const field = m === 'net' ? 'q' : 'q2';
   const cap = m === 'net' ? NCAP : NCAP2;
   return [osm,
     new deck.GeoJsonLayer({id: 'net-' + m, data: DATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => Math.min(Math.abs(f.properties[field]) / cap, 1) * 3200,
-      getFillColor: f => netColor(f.properties[field], cap, fadeAlpha(f, 255, 55)),
-      getLineColor: [0, 0, 0, 0], updateTriggers: trig})];
+      getFillColor: f => netColor(f.properties[field], cap)
+                          .concat(Math.round(255 * fadeF(f))),
+      getLineColor: [0, 0, 0, 0], updateTriggers: t})];
 }
 function panel() {
   const el = document.getElementById('panel');
@@ -159,8 +205,11 @@ function panel() {
 function select(props) { selectedI = props.i; selectedProps = props; panel(); render(); }
 function deselect() { selectedI = -1; selectedProps = null; panel(); render(); }
 function flyTo(lon, lat, zoom) {
+  vc = {x: lon, y: lat, zoom: zoom};
   deckgl.setProps({initialViewState: {longitude: lon, latitude: lat, zoom: zoom,
     pitch: 55, bearing: -15, transitionDuration: 900}});
+  clearTimeout(vcTimer);
+  vcTimer = setTimeout(render, 1000);   // re-center the fade at the destination
 }
 function render() {
   const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY};
