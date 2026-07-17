@@ -1,0 +1,29 @@
+zone,family,far_base,far_bonus,height_ft,min_density_sqft_per_unit,notes
+RF,single,,,30,,no FAR limit (Table 110-4)
+R20,single,0.7,0.8,30,,FAR for 4+ units; 0.4 for 1 unit
+R10,single,0.7,0.8,30,,FAR for 4+ units; 0.4 for 1 unit
+R7,single,0.7,0.8,30,,FAR for 4+ units; 0.4 for 1 unit
+R5,single,0.8,0.9,30,,FAR for 4+ units; 0.5 for 1 unit
+R2.5,single,1.0,1.1,35,,FAR for 4+ units; 0.7 for 1 unit
+RM1,multi,1.0,1.5,35,2500,min density 1u/2500sf (~17 du/ac)
+RM2,multi,1.5,2.25,45,1450,min density 1u/1450sf (~30 du/ac)
+RM3,multi,2.0,3.0,65,1000,min density 1u/1000sf (~44 du/ac)
+RM4,multi,3.0,4.0,75,1000,"Table: '4:1 or 3:1' by location; base 3, high 4"
+RX,multi,4.0,6.0,100,500,min density 1u/500sf (~87 du/ac)
+RMP,multi,,,35,,mobile home park; density max 1u/1500sf
+CR,commercial,1.0,,30,,
+CM1,commercial,1.5,2.5,35,,bonus via Table 130-3
+CM2,commercial,2.5,4.0,45,1450,min density 1u/1450sf; bonus 130-3
+CM3,commercial,3.0,5.0,65,1000,min density 1u/1000sf; bonus 130-3
+CE,commercial,2.5,4.0,45,,bonus via Table 130-3
+CX,commercial,4.0,6.0,75,,Central City plan district sets higher
+EG1,employment,3.0,,45,,
+EG2,employment,3.0,,,,no height limit
+EX,employment,3.0,5.0,65,,5:1 with inclusionary housing bonus
+IG1,industrial,,,,,no FAR/height limit
+IG2,industrial,,,,,no FAR/height limit
+IH,industrial,,,,,no FAR/height limit
+OS,open_space,,,,,open space; standards n/a
+CI1,institutional,,,,,campus institutional (ch. 33.150)
+CI2,institutional,,,,,campus institutional (ch. 33.150)
+IR,institutional,,,,,institutional residential

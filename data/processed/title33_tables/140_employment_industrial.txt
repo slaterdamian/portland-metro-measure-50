@@ -1,0 +1,342 @@
+Title 33, Planning and Zoning Chapter 33.140 
+3/1/25 Employment and Industrial Zones 
+ 
+140-13 
+both sites must meet the requirements of Section 33.700.060, Covenants with the 
+City.  
+33.140.210 Height 
+A. Purpose. The height standards work with the FAR, building setback, and building coverage 
+standards to control the overall bulk and intensity of an area. The EG1 zone height limit is 
+the same as the General Commercial zone because the EG1 zone often functions as a 
+transition zone between industrial and residential or commercial zones. The EX zone height 
+limit reflects its use in intense urban areas and the range of uses that are allowed. The 
+other zones do not have height limits because tall buildings in these areas have 
+traditionally not been a problem. 
+B. The height standard. The height limits for all structures, except detached accessory 
+structures, are stated in Table 140-2. The height standards for detached accessory 
+structures are stated in 33.140.270. Exceptions to the maximum height standard are  
+stated below. 
+1. Projections allowed. Chimneys, flag poles, satellite receiving dishes, and other similar 
+items attached to a building, with a width, depth, or diameter of 5 feet or less may rise 
+10 feet above the height limit, or 5 feet above the highest point of the roof, whichever 
+is greater. If they are greater than 5 feet in width, depth, or diameter, they are subject 
+to the height limit.  
+2. Parapets and rooftop railings may extend 4 feet above the height limit. 
+3.  Rooftop mechanical equipment and stairwell enclosures that provide rooftop access 
+may extend above the height limit as follows, provided that the equipment and 
+enclosures are set back at least 15 feet from all roof edges on street facing facades: 
+a. Elevator mechanical equipment may extend up to 16 feet above the height  
+limit; and 
+b. Other mechanical equipment and stairwell enclosures that cumulatively cover no 
+more than 10 percent of the roof area may extend up to 10 feet above the height 
+limit. 
+4. Antennas, utility power poles, and public safety facilities are exempt from the  
+height limit. 
+5. Small wind turbines are subject to the standards of Chapter 33.299. 
+6. Roof mounted solar panels are not included in height calculations, and may exceed 
+the maximum height limit if the following are met: 
+a. For flat roofs or the horizontal portion of mansard roofs, they may extend up to 5 
+feet above the top of the highest point of the roof. 
+b. For pitched, hipped, or gambrel roofs, they must be mounted no more than 12 
+inches from the surface of the roof at any point, and may not extend above the 
+ridgeline of the roof. The 12 inches is measured from the upper side of the  
+solar panel.  
+ 
+Chapter 33.140 Title 33, Planning and Zoning  
+Employment and Industrial Zones  3/1/25  
+ 
+140-14 
+Table 140-2 
+Development Standards 
+ 
+Standard 
+ 
+EG1 
+ 
+EG2 
+ 
+EX  
+ 
+IG1 
+ 
+IG2 
+ 
+IH 
+Maximum FAR  
+(see 33.140.205) 
+3 to 1 3 to 1 3 to 1 no limit no limit no limit 
+Maximum FAR with 
+Inclusionary Housing 
+Bonus 
+(see 33.140.205.C) 
+NA NA 5 to 1 NA NA NA 
+Maximum Height  
+(see 33.140.210) 
+45 ft. no limit 65 ft no limit no limit no limit 
+Min. Building Setbacks  
+ Street Lot Line 
+(see 33.140.215) 
+ 
+5 ft. 
+ 
+25 ft. 
+ 
+0 
+ 
+0 
+ 
+25 ft. 
+ 
+5 ft. 
+- Lot line abutting an OS, 
+C, E, or I zoned lot 
+ 
+0 
+ 
+0 
+ 
+0 
+ 
+0 
+ 
+0 
+ 
+0 
+- Lot line abutting an R 
+zoned lot 
+See Table 
+140-3 
+15 ft.  See Table 
+140-3 
+See Table 
+140-3 
+15 ft. 15 ft.  
+Max. Building Stbks  
+(see 33.140.215) 
+ Transit Street or 
+ Pedestrian District 
+ 
+ 
+10 ft. 
+ 
+ 
+ 
+None 
+ 
+ 
+10 ft. 
+ 
+ 
+None 
+ 
+ 
+None 
+ 
+ 
+None 
+Maximum Building 
+Coverage  
+(see 33.140.220) 
+85% of site 
+area 
+85% of site 
+area 
+100% of 
+site area 
+100% of 
+site area 
+85% of site 
+area 
+100% of 
+site area 
+Min. Landscaped Area  
+(see 140.225) 
+15% of site 
+area 
+15% of site 
+area 
+None None 15% of site 
+area 
+None 
+Ground Floor Window 
+Standards apply 
+(see 33.140.230) 
+ 
+No 
+ 
+No 
+ 
+Yes 
+ 
+No 
+ 
+No 
+ 
+No 
+Pedestrian Standards 
+Apply (see 33.140.240) 
+ 
+Yes 
+ 
+Yes 
+ 
+Yes 
+ 
+No 
+ 
+No 
+ 
+No 
+ 
+ 
+Table 140-3 
+Minimum Building Setbacks and Minimum Landscape Buffer 
+From Residential Zone Lot Lines [1] 
+ 
+Zone 
+ 
+Height of the  
+building wall 
+ 
+Lots abutting a side lot line  
+of an R zoned lot 
+ 
+Lots abutting a rear lot line  
+of an R zoned lot 
+EG1, EX, IG1 15 ft. or less 5 ft. / 5 ft. @ L3 0 / none 
+16 or more 10 ft. / 5 ft. @ L3 10 ft. / 5 ft. @ L3 
+EG2, IG2, IH Any height 15 ft. / 10 ft. @ L3 15 ft. / 10 ft. @ L3 
+ Notes: 
+[1] Does not apply to lot lines that abut lots in the RX zone. See 33.140.215.B. 
+Title 33, Planning and Zoning Chapter 33.140 
+3/1/25 Employment and Industrial Zones 
+ 
+140-15 
+33.140.215 Setbacks 
+A. Purpose. The setback standards promote different streetscapes. The EG2 and IG2 zone 
+setbacks promote a spacious style of development. The EG1, IG1, and EX zone setbacks 
+reflect the generally built-up character of these areas. The IH zone requires only a minimal 
+setback to separate uses from the street. The setback standards are also intended to 
+ensure that development will preserve light, air, and privacy for abutting residential zones. 
+In the EG1 and EX zones, the setback requirements along transit streets and in Pedestrian 
+Districts create an environment that is inviting to pedestrians and transit users. 
+B. Minimum building setbacks. The setback standards apply to all buildings and structures on 
+the site except as specified in this section. Setbacks for exterior development are stated in 
+33.140.245 below, and for parking areas in Chapter 33.266. 
+1. Generally. The required building setbacks are stated in Table 140-2. 
+2. Lot line abutting R-zoned lot, except RX. Building setbacks and required landscape 
+buffering on lot lines that abut lots in residential zones, except RX, are stated in Table 
+140-3. Required landscaped areas must comply with at least the L3 standard as stated 
+in Chapter 33.248, Landscaping and Screening. Landscaping is not required where 
+buildings abut a lot line. 
+3. Exceptions to the building setbacks. 
+a. Setback averaging. Outside of Pedestrian Districts and along non-transit streets, 
+the street setback from a street lot line for buildings, decks, balconies, and 
+porches may be reduced to the average of the existing respective setbacks on 
+abutting lots. See Chapter 33.930, Measurements, for more information. 
+b. Split zoning. No setbacks are required from an internal lot line that is also a 
+zoning line on sites with split zoning. 
+4. Extensions into required building setbacks. 
+a. The following features of a building may extend into a required building setback 
+up to 20 percent of the depth of the setback. However, except for building eaves, 
+they may not project into the landscape buffer required by Paragraph B.2.  
+(1) Eaves, chimneys, fireplace inserts and vents, mechanical equipment, fire 
+escapes, water collection cisterns, and planters; 
+(2) Decks, stairways, wheelchair ramps, and uncovered balconies not meeting 
+the standard of subparagraph B.4.b.; and 
+(3) Bays and bay windows extending into the setback also must meet the 
+following requirements: 
+• Each bay and bay window may be up to 12 feet long, but the total area 
+of all bays and bay windows on a building facade cannot be more than 
+30 percent of the area of the facade; 
+• At least 30 percent of the area of the bay which faces the property line 
+requiring the setback must be glazing or glass block; 
+Chapter 33.140 Title 33, Planning and Zoning  
+Employment and Industrial Zones  3/1/25  
+ 
+140-16 
+• Bays and bay windows must cantilever beyond the foundation of the 
+building; and 
+• The bay may not include any doors. 
+b. The following minor features of a building are allowed to extend into required 
+building setbacks but may not project into the landscaped buffer required by 
+Paragraph B.2: 
+(1) Canopies, marquees, awnings, and similar features may fully extend into a 
+street setback; 
+(2) Uncovered stairways and wheelchair ramps that lead to one entrance on 
+the street-facing facade of a building may fully extend into a street setback; 
+(3) Uncovered decks, stairways, and wheelchair ramps that are no more than 2-
+1/2 feet above the ground may fully extend into a required building setback; 
+and 
+(4) On lots that slope down from the street, vehicular and pedestrian entry 
+bridges that are no more than 2-1/2 feet above the average sidewalk 
+elevation may fully extend into a required building setback. 
+5. Detached accessory structures. For sites entirely in residential use, detached accessory 
+structures are subject to the multi-dwelling zone standards of 33.120.280. The setback 
+standards for detached accessory structures are stated in 33.140.270 below. Fences 
+are addressed in 33.140.275 below.  
+C. Maximum building setbacks. 
+1. Building setbacks on a transit street or in a Pedestrian District. The maximum setback 
+standards of this paragraph apply to buildings that are enclosed on all sides.  
+a. Where these standards apply. Except as provided in Subsection D. below, these 
+setback standards apply to sites in the EG1 and EX zones. 
+b. Measurement.  
+(1) Where an existing building is being altered, the standards of this paragraph 
+apply to the ground level, street-facing facade of the entire building. See 
+Figures 140-1 and 140-2. 
+(2) Where there is more than one building on the site, the standards of this 
+paragraph apply to the combined ground level, street-facing facades of all of 
+the buildings on the site. See Figures 140-3 and 140-4. 
+(3) For buildings where all of the floor area is in residential use, the street-
+facing facade of an open porch that meets the following standards is 
+included as part of the ground level, street-facing facade of the building: 
+• For houses, attached houses, manufactured homes and duplexes, the 
+porch must be at least 25 square feet in area. For multi-dwelling 
+structures, the porch must be at least 9 feet wide and 7 feet deep; 
+• The porch must have at least one entrance facing the street; and 
+ 
+Title 33, Planning and Zoning Chapter 33.140 
+3/1/25 Employment and Industrial Zones 
+ 
+140-17 
+• The porch must have a roof that is: 
+− No more than 12 feet above the floor of the porch; and 
+− At least 30 percent solid. This standard may be met by having 30 
+percent of the porch area covered with a solid roof, or by having 
+the entire area covered with a trellis or other open material if no 
+more than 70 percent of the area of the material is open. 
+c. Standards. There are two standards. Subparagraphs C.1.d. and e. specify where 
+each standard applies: 
+(1) Standard 1: At least 50 percent of the length of the ground level street-
+facing facade of the building must be within the maximum setback; 
+(2) Standard 2: 100 percent of the length of the ground level street-facing 
+facade of the building must be within the maximum setback; 
+d. Outside a Pedestrian district. Where the site is not in a Pedestrian District: 
+(1) One transit street. Where the site is adjacent to one transit street, the 
+standard of Standard 1 must be met on the transit street frontage; 
+(2) Two non-intersecting transit streets. Where the site is adjacent to two 
+transit streets that do not intersect: 
+• Standard 1 must be met on the frontage of the transit street with the 
+highest classification. If both streets have the same classification, the 
+applicant may choose which street; 
+• If one of the transit streets intersects a City Walkway, Standard 1 must 
+be met along both the transit street with the highest classification and 
+the City Walkway; 
+(3) Two or more intersecting transit streets. Where the site is adjacent to two 
+or more intersecting transit streets, Standard 2 must be met on the frontage 
+of the transit street with the highest classification and Standard 1 must be 
+met on an intersecting transit street. If two streets have the same highest 
+classification, the applicant may choose which street. 
+ 
+ 
+ 
+e. In a Pedestrian District. Where the site is in a Pedestrian District: 
+(1) One street. Where the site is adjacent to only one street, Standard 1 must 
+be met on that street frontage; 
+(2) Through lot with one transit street. Where the site is a through lot and one 
+frontage is a transit street and one is a non-transit street, Standard 1 must 
+be met on the frontage of the transit street; 
+(3) Through lot with two transit streets. Where the site is a through lot and 
+both frontages are on transit streets, Standard 1 must be met on the 
+frontage of the transit street with the highest classification. If both streets 
+have the same classification, the applicant may choose which street; 

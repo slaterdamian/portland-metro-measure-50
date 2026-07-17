@@ -75,9 +75,14 @@ conda run -n vpa python src/30_render_3d.py
 - **Phase 2 — cost & net per acre.** 🔜 District revenue (rate table pending),
   cost allocation over city-owned networks (BES collection system `OWNRSHIP`,
   RLIS streets), the surplus/deficit map, and cost-basis sensitivity.
-- **Phase 3 — zoning feasibility.** 🔜 Extract dimensional standards from
-  Title 33 (1,855 pp, text-parseable), derive the density each location needs
-  to be fiscally solvent, compare against what the code permits.
+- **Phase 3 — zoning feasibility.** ✅ Title 33's development standards
+  extracted (Tables 110-4, 120-4, 130-2, 140-2 incl. Portland's minimum-density
+  mandates); per zone, the model derives the built intensity (FAR / du-acre)
+  fiscal solvency requires and tests it against the code. **Headline: no zone's
+  requirement exceeds zoned capacity — the binding constraint is underbuilding,
+  not Title 33** (e.g. CX has built FAR 1.55 of an allowed 4.0). See
+  [docs/feasibility.md](docs/feasibility.md) and
+  `outputs/figures/zone_feasibility.png`.
 
 ## License
 

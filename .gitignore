@@ -19,6 +19,7 @@ outputs/figures/*
 !outputs/figures/value_stack_3d.html
 !outputs/figures/revenues_costs_3d.png
 !outputs/figures/revenues_costs_3d_net_a2_network.png
+!outputs/figures/zone_feasibility.png
 
 # ---- Media / local tooling ----------------------------------------------
 *.mp4
