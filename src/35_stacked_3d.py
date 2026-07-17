@@ -92,8 +92,9 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <script>
 const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
 area into focus. Click a bar to pin its details (the pin follows you across
-views); click empty ground to clear. Condo &amp; townhome units are drawn
-individually, with their shared land split evenly per unit.<br/>
+views); click empty ground to clear. Condo, townhome &amp; apartment
+sites split across sibling tax lots are shown at the site's combined value
+per acre; their shared land is divided among the units.<br/>
 Data: Metro RLIS (ODbL) &middot; FY2025-26 Adopted Budget &middot; basemap
 &copy; OpenStreetMap contributors &middot; search &copy; Nominatim/OSM</small>`;
 const LEGEND_VALUE = `<b>1 &middot; What the land is worth &mdash; and what
@@ -354,24 +355,89 @@ def main():
     info["eff"] = (info["land"] / info["n"]).clip(lower=0.005)
     g.loc[s_units, "acres_eff"] = blockkey[s_units].map(info["eff"]).values
 
-    # address-suffix fallback for unit parcels outside the 7xxxx series
-    addr = g["SITEADDR"].fillna("").astype(str).str.upper().str.strip()
-    base = addr.str.replace(UNIT_RE, "", regex=True).str.strip()
-    is_unit = (base != addr) & (base != "") & ~in_series
-    ug = pd.DataFrame({"base": base[is_unit], "acres": g.loc[is_unit, "acres"]})
-    ainfo = ug.groupby("base").agg(n=("acres", "size"), land=("acres", "sum"))
-    common = (~is_unit) & ~in_series & addr.isin(ainfo.index) & (g["av"] <= 0)
-    if common.any():
-        aextra = pd.DataFrame({"base": addr[common],
-                               "acres": g.loc[common, "acres"]}
-                              ).groupby("base")["acres"].sum()
-        ainfo["land"] = ainfo["land"].add(aextra, fill_value=0)
-    ainfo["eff"] = (ainfo["land"] / ainfo["n"]).clip(lower=0.005)
-    g.loc[is_unit, "acres_eff"] = base[is_unit].map(ainfo["eff"]).values
-    g = g[~common].copy()
+    # STAGE 2 -- spatial regime clustering (general case). Unit-scale parcels
+    # (tiny lots, or buildings physically larger than their lot -- the assessor
+    # concentrates an assembled site's value on one footprint lot) are clustered
+    # with everything they touch: fellow units, same-use valued siblings of
+    # impossible-building lots, and private zero-value common tracts. Each
+    # cluster is one economic site; its land is split across valued members in
+    # proportion to value, so every member displays the SITE's $/acre.
+    grouped1 = s_units  # handled by stage 1
+    bsq = pd.to_numeric(g["BLDGSQFT"], errors="coerce").fillna(0)
+    bldg_over = (g["av"] > 0) & (bsq > 1.5 * g["acres"] * 43560) & (g["acres"] > 0)
+    tiny = (g["av"] > 0) & (g["acres"] < 0.03)
+    unit0 = (~grouped1) & (tiny | bldg_over)
+    absorbable = (g["av"] <= 0) & (g["PUBLIC_OWN"] != 1) & (g["acres"] <= 10)
+
+    buf = g.geometry.buffer(3.0)
+    gi = g.reset_index(drop=True)
+    bo = set(np.flatnonzero(bldg_over.to_numpy()))
+    lu = gi["LANDUSE"].astype(str).to_numpy()
+    av_arr = gi["av"].to_numpy()
+    # same-use valued siblings of impossible-building lots join as units --
+    # searched against ALL parcels (the site continues onto ordinary lots)
+    sib = set()
+    if bo:
+        bo_gdf = gpd.GeoDataFrame({"ga": sorted(bo)},
+                                  geometry=buf.to_numpy()[sorted(bo)], crs=g.crs)
+        all_gdf = gpd.GeoDataFrame({"gb": np.arange(len(gi))},
+                                   geometry=gi.geometry.values, crs=g.crs)
+        p2 = gpd.sjoin(bo_gdf, all_gdf, predicate="intersects")
+        for a, b in zip(p2["ga"].to_numpy(), p2["gb"].to_numpy()):
+            if a != b and av_arr[b] > 0 and lu[a] == lu[b]:
+                sib.add(int(b))
+    sib_mask = np.zeros(len(gi), dtype=bool)
+    sib_mask[list(sib)] = True
+    cand = unit0 | absorbable | bldg_over | pd.Series(sib_mask, index=g.index)
+    sub = gpd.GeoDataFrame({"gi": np.flatnonzero(cand.to_numpy())},
+                           geometry=buf[cand].values, crs=g.crs)
+    pairs = gpd.sjoin(sub, sub, predicate="intersects")
+    unit_set = set(np.flatnonzero(unit0.to_numpy())) | bo | sib
+    absorb_set = set(np.flatnonzero(absorbable.to_numpy()))
+
+    parent = {}
+    def find(x):
+        while parent.get(x, x) != x:
+            parent[x] = parent.get(parent[x], parent[x])
+            x = parent[x]
+        return x
+    def union(a, b):
+        ra, rb = find(a), find(b)
+        if ra != rb:
+            parent[rb] = ra
+    live = unit_set | absorb_set
+    for a, b in zip(pairs["gi_left"].to_numpy(), pairs["gi_right"].to_numpy()):
+        if a != b and a in live and b in live:
+            union(int(a), int(b))
+    comp = {}
+    for x in live:
+        comp.setdefault(find(int(x)), []).append(int(x))
+
+    acres_arr = gi["acres"].to_numpy()
+    acres_eff = g["acres_eff"].to_numpy().copy()
+    drop_idx = []
+    n_clusters = n_members = 0
+    for members in comp.values():
+        umem = [m for m in members if m in unit_set]
+        if not umem:
+            continue
+        amem = [m for m in members if m in absorb_set]
+        land = float(sum(acres_arr[m] for m in umem + amem))
+        uav = float(sum(av_arr[m] for m in umem))
+        if land <= 0 or uav <= 0:
+            continue
+        for m in umem:  # value-proportional land share -> uniform site $/acre
+            acres_eff[m] = max(av_arr[m] * land / uav, 0.004)
+        drop_idx.extend(amem)
+        n_clusters += 1
+        n_members += len(umem)
+    g["acres_eff"] = acres_eff
+    if drop_idx:
+        g = g.drop(g.index[drop_idx])
     print(f"regimes: TLID-block {len(info):,} plats / {int(info['n'].sum()):,} units "
-          f"(tract land {float(info['land'].sum()):,.0f} ac); "
-          f"address-fallback {len(ainfo):,} groups / {int(ainfo['n'].sum()):,} units")
+          f"(tract land {float(info['land'].sum()):,.0f} ac); spatial "
+          f"{n_clusters:,} clusters / {n_members:,} members, "
+          f"{len(drop_idx):,} common parcels absorbed")
 
     g = g[(g["av"] > 0) & (g["acres_eff"] >= MIN_ACRES)].copy()
 
