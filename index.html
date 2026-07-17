@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Portland Metro &amp; Measure 50</title>
+<script src="https://unpkg.com/deck.gl@9.0.34/dist.min.js"></script>
+<style>html,body{margin:0;height:100%}#app{width:100%;height:100%;position:relative}
+#legend{position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,.95);
+padding:11px 13px;font:12px/1.45 sans-serif;border-radius:6px;z-index:1;max-width:330px;
+box-shadow:0 1px 6px rgba(0,0,0,.25)}
+#legend small{color:#666}
+#toggle{position:absolute;top:14px;right:14px;z-index:1;font:13px sans-serif;
+background:#fff;border:1px solid #999;border-radius:6px;padding:8px 14px;
+cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+#toggle:hover{background:#f0f0f0}
+#searchwrap{position:absolute;top:14px;left:14px;z-index:2}
+#search{width:260px;font:13px sans-serif;padding:8px 10px;border:1px solid #999;
+border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+#panel{position:absolute;top:56px;left:14px;z-index:2;background:rgba(255,255,255,.97);
+border:1px solid #888;border-radius:6px;padding:10px 12px;font:12px sans-serif;
+max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
+#panel .x{float:right;cursor:pointer;font-weight:bold;padding:0 4px;color:#666}
+#panel .x:hover{color:#000}
+#panel h4{margin:0 22px 6px 0;font-size:13px}
+#panel td{padding:1px 6px 1px 0;vertical-align:top}
+</style></head><body><div id="app"></div>
+<div id="searchwrap"><input id="search"
+  placeholder="Search address or landmark&hellip;" /></div>
+<div id="panel"></div>
+<div id="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);z-index:5;font:15px sans-serif;color:#333">Loading ~190,000 parcels (~20&nbsp;MB compressed)&hellip;</div>
+<button id="toggle">Show: Revenues &amp; Costs</button>
+<div id="legend"></div>
+<script>
+const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
+area into focus. Click a bar to pin its details (the pin follows you across
+views); click empty ground to clear. Condo, townhome &amp; apartment sites
+that the assessor splits across many unit lots are combined into a single bar
+per site (total value over the site's land), so they compare directly with
+rental buildings on one lot.<br/>
+Data: Metro RLIS (ODbL) &middot; FY2025-26 Adopted Budget &middot; basemap
+&copy; OpenStreetMap contributors &middot; search &copy; Nominatim/OSM</small>`;
+const LEGEND_VALUE = `<b>1 &middot; What the land is worth &mdash; and what
+Oregon actually taxes.</b><br/>
+Each bar is one tax lot on its real footprint. The <b>solid bar</b> is its
+assessed value per acre &mdash; the only value Oregon taxes (Measure 50). The
+<b>outlined faded top</b> extends to its real market value: everything above
+the solid bar is untaxed. Color = assessed $/acre, green (low) &rarr; red &rarr;
+purple (high).<br/>
+<b>How to read it:</b> tall, warm-colored bars are the land carrying the tax
+base. The bigger a bar's faded top, the more of its market value Measure 50
+shelters &mdash; citywide, the median lot is taxed on just <b>42%</b> of what
+it's worth.<br/>` + FOOT;
+const LEGEND_NET = `<b>2 &middot; Does each lot's city tax cover the city
+services allocated to it?</b><br/>
+Height = the gap, in $ per acre, between what the lot pays the City of Portland
+in property tax and its allocated share of tax-supported services (FY2025-26
+police, fire, parks, pension &amp; administration, allocated by dwellings and
+building area). <b><span style="color:#141414">Black</span></b> = pays more
+than its share of costs; <b><span style="color:#a63603">orange/red</span></b> =
+pays less.<br/>
+<b>How to read it:</b> the map runs mostly orange because property tax funds
+only ~54% of these services citywide &mdash; business taxes and fees cover the
+rest. So orange here is <i>not</i> automatically freeloading; view 3 corrects
+for that.<br/>` + FOOT;
+const LEGEND_CARRY = `<b>3 &middot; The fair freeloader test.</b><br/>
+Same comparison as view 2, but graded on the curve of how Portland actually
+funds itself: since property tax covers 54.1% of tax-supported services
+citywide, a lot &quot;carries its share&quot; when its own tax covers at least
+54.1% of its allocated cost. <b><span style="color:#141414">Black</span></b> =
+carries more than its share (it subsidizes others);
+<b><span style="color:#a63603">orange/red</span></b> = carries less (it is
+subsidized). Height = the surplus or shortfall per acre.<br/>
+<b>How to read it:</b> orange in THIS view means below-average contribution
+even after accounting for the funding mix &mdash; the honest freeloader
+signal.<br/>` + FOOT;
+
+const NCAP = 61332;
+const NCAP2 = 34730;
+const MODES = ['value', 'net', 'carry'];
+const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
+                    carry: 'Share-Adjusted Net'};
+let mode = 'value';
+let selectedI = -1;
+let selectedProps = null;
+let DATA = null;
+let vc = {x: -122.63701, y: 45.52989, zoom: 11.6};
+let vcTimer = null;
+
+const deckgl = new deck.DeckGL({
+  container: 'app',
+  initialViewState: {latitude: 45.52989, longitude: -122.63701, zoom: 11.6, pitch: 55, bearing: -15},
+  controller: true,
+  onViewStateChange: ({viewState}) => {
+    clearTimeout(vcTimer);
+    vcTimer = setTimeout(() => {
+      // re-render the fade only for meaningful moves (attribute rebuild is heavy)
+      const degPerPx = 360 / (512 * Math.pow(2, viewState.zoom));
+      const moved = Math.hypot(viewState.longitude - vc.x, viewState.latitude - vc.y);
+      if (moved < window.innerHeight * 0.12 * degPerPx &&
+          Math.abs(viewState.zoom - vc.zoom) < 0.4) return;
+      vc = {x: viewState.longitude, y: viewState.latitude, zoom: viewState.zoom};
+      render();
+    }, 300);
+  },
+  onClick: info => { info.object ? select(info.object.properties) : deselect(); },
+  getTooltip: ({object}) => {
+    if (!object) return null;
+    const p = object.properties;
+    if (mode === 'value') return {html:
+      `<b>${p.s || 'no address'}</b><br/>` +
+      `Assessed (taxed): <b>${p.t}</b> &middot; ${p.v}<br/>` +
+      `Real market: <b>${p.u}</b> &middot; ${p.w}<br/>` +
+      `Taxed share: <b>${p.p}%</b> of market value`};
+    const tot = mode === 'net' ? p.nt : p.n2;
+    const pa = mode === 'net' ? p.q : p.q2;
+    const s = tot < 0 ? '&minus;' : '+';
+    const sa = pa < 0 ? '&minus;' : '+';
+    const label = mode === 'net' ? 'Net vs city services' : 'Share-adjusted net';
+    return {html:
+      `<b>${p.s || 'no address'}</b><br/>` +
+      `Assessed (taxed): <b>${p.t}</b> &middot; Market: <b>${p.u}</b><br/>` +
+      `City tax paid: <b>$${p.c.toLocaleString()}</b><br/>` +
+      `${label}: <b>${s}$${Math.abs(tot).toLocaleString()}</b>` +
+      ` &middot; ${sa}$${Math.abs(pa).toLocaleString()}/ac`};
+  },
+  layers: []
+});
+const osm = new deck.TileLayer({
+  id: 'osm', data: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+  minZoom: 0, maxZoom: 19, tileSize: 256,
+  renderSubLayers: p => new deck.BitmapLayer(p, {
+    data: null, image: p.data,
+    bounds: [p.tile.boundingBox[0][0], p.tile.boundingBox[0][1],
+             p.tile.boundingBox[1][0], p.tile.boundingBox[1][1]]})
+});
+function netColor(q, cap) {
+  const t = Math.min(Math.abs(q) / cap, 1), f = Math.max(t, 0.08);
+  const [c0, c1] = q > 0 ? [[217, 217, 217], [20, 20, 20]]
+                         : [[253, 208, 162], [140, 45, 4]];
+  return c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
+}
+// radial focus: full strength near the view center, lightest at the edges
+function radial(f) {
+  const degPerPx = 360 / (512 * Math.pow(2, vc.zoom));
+  const rFull = window.innerHeight * 0.28 * degPerPx;
+  const rEdge = window.innerHeight * 0.85 * degPerPx;
+  const dx = (f.properties.x - vc.x) * Math.cos(vc.y * Math.PI / 180);
+  const dy = f.properties.y - vc.y;
+  const d = Math.hypot(dx, dy);
+  if (d <= rFull) return 1;
+  if (d >= rEdge) return 0.22;
+  return 1 - 0.78 * (d - rFull) / (rEdge - rFull);
+}
+function fadeF(f) {
+  const s = (selectedI < 0 || f.properties.i === selectedI) ? 1 : 0.22;
+  return Math.min(radial(f), s);
+}
+function trig() {
+  return [selectedI, mode, vc.x.toFixed(3), vc.y.toFixed(3),
+          Math.round(vc.zoom * 4)];
+}
+function layersFor(m) {
+  const t = {getFillColor: trig(), getLineColor: trig()};
+  if (m === 'value') return [osm,
+    new deck.GeoJsonLayer({id: 'solid', data: DATA, extruded: true,
+      pickable: true, wireframe: false,
+      getElevation: f => f.properties.a,
+      getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
+                          Math.round(255 * fadeF(f))],
+      getLineColor: [0, 0, 0, 0], updateTriggers: t}),
+    new deck.GeoJsonLayer({id: 'ghost', data: DATA, extruded: true,
+      pickable: false, wireframe: true,
+      getElevation: f => f.properties.m,
+      getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
+                          Math.round(56 * fadeF(f))],
+      getLineColor: [0, 0, 0, 255],   // outline always fully opaque
+      lineWidthMinPixels: 1,
+      parameters: {depthMask: false},
+      getPolygonOffset: () => [0, -600], updateTriggers: t})];
+  const field = m === 'net' ? 'q' : 'q2';
+  const cap = m === 'net' ? NCAP : NCAP2;
+  return [osm,
+    new deck.GeoJsonLayer({id: 'net-' + m, data: DATA, extruded: true,
+      pickable: true, wireframe: false,
+      getElevation: f => Math.min(Math.abs(f.properties[field]) / cap, 1) * 3200,
+      getFillColor: f => netColor(f.properties[field], cap)
+                          .concat(Math.round(255 * fadeF(f))),
+      getLineColor: [0, 0, 0, 0], updateTriggers: t})];
+}
+function panel() {
+  const el = document.getElementById('panel');
+  if (!selectedProps) { el.style.display = 'none'; return; }
+  const p = selectedProps;
+  const sN = p.nt < 0 ? '&minus;' : '+', sQ = p.q < 0 ? '&minus;' : '+';
+  const sN2 = p.n2 < 0 ? '&minus;' : '+', sQ2 = p.q2 < 0 ? '&minus;' : '+';
+  el.innerHTML =
+    `<span class="x" onclick="deselect()">&times;</span>` +
+    `<h4>${p.s || '(no address on record)'}</h4><table>` +
+    `<tr><td>Assessed (taxed)</td><td><b>${p.t}</b> &middot; ${p.v}</td></tr>` +
+    `<tr><td>Real market</td><td><b>${p.u}</b> &middot; ${p.w}</td></tr>` +
+    `<tr><td>Taxed share</td><td><b>${p.p}%</b> of market</td></tr>` +
+    `<tr><td>City tax paid</td><td><b>$${p.c.toLocaleString()}</b>/yr</td></tr>` +
+    `<tr><td>Net vs services</td><td><b>${sN}$${Math.abs(p.nt).toLocaleString()}</b>` +
+    ` &middot; ${sQ}$${Math.abs(p.q).toLocaleString()}/ac</td></tr>` +
+    `<tr><td>Share-adjusted</td><td><b>${sN2}$${Math.abs(p.n2).toLocaleString()}</b>` +
+    ` &middot; ${sQ2}$${Math.abs(p.q2).toLocaleString()}/ac</td></tr></table>` +
+    `<i style="color:#777">Selection locked — switch views to compare.</i>`;
+  el.style.display = 'block';
+}
+function select(props) { selectedI = props.i; selectedProps = props; panel(); render(); }
+function deselect() { selectedI = -1; selectedProps = null; panel(); render(); }
+function flyTo(lon, lat, zoom) {
+  vc = {x: lon, y: lat, zoom: zoom};
+  deckgl.setProps({initialViewState: {longitude: lon, latitude: lat, zoom: zoom,
+    pitch: 55, bearing: -15, transitionDuration: 900}});
+  clearTimeout(vcTimer);
+  vcTimer = setTimeout(render, 1000);   // re-center the fade at the destination
+}
+function render() {
+  const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY};
+  document.getElementById('legend').innerHTML = LEGENDS[mode];
+  const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  document.getElementById('toggle').innerHTML = 'Show: ' + MODE_LABEL[next];
+  deckgl.setProps({layers: layersFor(mode)});
+}
+document.getElementById('toggle').onclick = () => {
+  mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
+  render();
+};
+document.getElementById('search').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const q = e.target.value.trim();
+  if (!q || !DATA) return;
+  const qn = q.toUpperCase();
+  const hit = DATA.features.find(f =>
+    f.properties.s && f.properties.s.toUpperCase().startsWith(qn)) ||
+    DATA.features.find(f =>
+    f.properties.s && f.properties.s.toUpperCase().includes(qn));
+  if (hit) {
+    select(hit.properties);
+    flyTo(hit.properties.x, hit.properties.y, 15);
+    return;
+  }
+  fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1' +
+        '&viewbox=-122.85,45.66,-122.44,45.42&bounded=1&q=' +
+        encodeURIComponent(q))
+    .then(r => r.json()).then(res => {
+      if (res.length) flyTo(parseFloat(res[0].lon), parseFloat(res[0].lat), 15.5);
+      else e.target.style.borderColor = '#c0392b';
+    }).catch(() => {});
+});
+document.getElementById('search').addEventListener('input',
+  e => { e.target.style.borderColor = '#999'; });
+fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
+  DATA = data;
+  document.getElementById('loading').style.display = 'none';
+  render();
+});
+</script></body></html>
