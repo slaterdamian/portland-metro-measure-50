@@ -92,9 +92,10 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <script>
 const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
 area into focus. Click a bar to pin its details (the pin follows you across
-views); click empty ground to clear. Condo, townhome &amp; apartment
-sites split across sibling tax lots are shown at the site's combined value
-per acre; their shared land is divided among the units.<br/>
+views); click empty ground to clear. Condo, townhome &amp; apartment sites
+that the assessor splits across many unit lots are combined into a single bar
+per site (total value over the site's land), so they compare directly with
+rental buildings on one lot.<br/>
 Data: Metro RLIS (ODbL) &middot; FY2025-26 Adopted Budget &middot; basemap
 &copy; OpenStreetMap contributors &middot; search &copy; Nominatim/OSM</small>`;
 const LEGEND_VALUE = `<b>1 &middot; What the land is worth &mdash; and what
@@ -331,69 +332,76 @@ def main():
     for c in ("av", "rmv", "acres"):
         g[c] = pd.to_numeric(g[c], errors="coerce").fillna(0)
     g = g[g.geometry.notna() & ~g.geometry.is_empty].copy()
-    g["geometry"] = g.geometry.make_valid().simplify(SIMPLIFY_FT)
+    # simplify can re-invalidate polygons; snap precision + re-validate so the
+    # regime dissolve (GEOS union) never hits topology conflicts
+    gm = g.geometry.make_valid().simplify(SIMPLIFY_FT)
+    gm = shapely.make_valid(shapely.set_precision(gm.values, 0.01))
+    g["geometry"] = gm
+    g = g[~g.geometry.is_empty].reset_index(drop=True)
 
-    # ---- condo/townhome regime treatment --------------------------------------
-    # Oregon condo-plat convention: unit lots get 70000+-series TLID lot numbers
-    # in a thousand-block, with the plat's COMMON TRACT (all the shared land,
-    # AV=0) as the -x000 lot of the same block (e.g. units 70021-70058 sit on
-    # tract 70000, which held 7.27 acres in the reported example). Group by the
-    # thousand-block, absorb tract land, split evenly per unit.
-    g["acres_eff"] = g["acres"]
-    tlc = g["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
-    lot = pd.to_numeric(tlc.str[-5:], errors="coerce").fillna(0).astype(int)
-    blockkey = tlc.str[:-3]
-    in_series = lot >= 70000
-    s_units = in_series & (g["av"] > 0)
-    s_common = in_series & (g["av"] <= 0)
-    info = (pd.DataFrame({"k": blockkey[s_units], "acres": g.loc[s_units, "acres"]})
-            .groupby("k").agg(n=("acres", "size"), land=("acres", "sum")))
-    extra = (pd.DataFrame({"k": blockkey[s_common],
-                           "acres": g.loc[s_common, "acres"]})
-             .groupby("k")["acres"].sum())
-    info["land"] = info["land"].add(extra.reindex(info.index).fillna(0), fill_value=0)
-    info["eff"] = (info["land"] / info["n"]).clip(lower=0.005)
-    g.loc[s_units, "acres_eff"] = blockkey[s_units].map(info["eff"]).values
+    # ---- per-parcel net fields (joined BEFORE aggregation so sums carry) ------
+    n = gpd.read_file(NET, ignore_geometry=True,
+                      columns=["TLID", "city_tax", "net_a2_demand", "net_a1_demand"])
+    n["tl"] = n["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
+    n = n.drop_duplicates("tl").set_index("tl")
+    tl = g["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
+    g["city_tax"] = tl.map(n["city_tax"]).fillna(0)
+    g["net"] = tl.map(n["net_a2_demand"]).fillna(0)
+    g["net1"] = tl.map(n["net_a1_demand"]).fillna(0)
 
-    # STAGE 2 -- spatial regime clustering (general case). Unit-scale parcels
-    # (tiny lots, or buildings physically larger than their lot -- the assessor
-    # concentrates an assembled site's value on one footprint lot) are clustered
-    # with everything they touch: fellow units, same-use valued siblings of
-    # impossible-building lots, and private zero-value common tracts. Each
-    # cluster is one economic site; its land is split across valued members in
-    # proportion to value, so every member displays the SITE's $/acre.
-    grouped1 = s_units  # handled by stage 1
+    # ---- regime identification -------------------------------------------------
+    # Condo, townhome, and split-site apartment parcels are aggregated into ONE
+    # bar per SITE (union footprint, summed values) so they display exactly like
+    # an equivalent rental building on a single lot.
+    g["rid"] = pd.NA
+
+    # STAGE 1: Oregon condo-plat TLID convention -- unit lots numbered 70000+
+    # in a thousand-block, with the plat's zero-value common tract in the same
+    # block. Everything in a block that has at least one valued unit is a site.
+    lot = pd.to_numeric(tl.str[-5:], errors="coerce").fillna(0).astype(int)
+    blockkey = tl.str[:-3]
+    in_series = (lot >= 70000).to_numpy()
+    has_unit = (pd.DataFrame({"k": blockkey[in_series],
+                              "av": g.loc[in_series, "av"]})
+                .groupby("k")["av"].max() > 0)
+    ok_blocks = set(has_unit[has_unit].index)
+    m1 = in_series & blockkey.isin(ok_blocks).to_numpy()
+    g.loc[m1, "rid"] = "B|" + blockkey[m1]
+
+    # STAGE 2: spatial clustering for everything the TLID convention misses --
+    # sliver lots (rowhouse plats on ordinary lot numbers), lots whose BUILDING
+    # exceeds the lot (an assembled site's value concentrated on one footprint
+    # lot), touching same-use valued siblings of those lots, and touching
+    # private zero-value commons.
+    free = g["rid"].isna().to_numpy()
     bsq = pd.to_numeric(g["BLDGSQFT"], errors="coerce").fillna(0)
-    bldg_over = (g["av"] > 0) & (bsq > 1.5 * g["acres"] * 43560) & (g["acres"] > 0)
-    tiny = (g["av"] > 0) & (g["acres"] < 0.03)
-    unit0 = (~grouped1) & (tiny | bldg_over)
-    absorbable = (g["av"] <= 0) & (g["PUBLIC_OWN"] != 1) & (g["acres"] <= 10)
+    bldg_over = free & (g["av"] > 0).to_numpy() & \
+        (bsq > 1.5 * g["acres"] * 43560).to_numpy() & (g["acres"] > 0).to_numpy()
+    tiny = free & (g["av"] > 0).to_numpy() & (g["acres"] < 0.03).to_numpy()
+    absorbable = free & (g["av"] <= 0).to_numpy() & \
+        (g["PUBLIC_OWN"] != 1).to_numpy() & (g["acres"] <= 10).to_numpy()
 
     buf = g.geometry.buffer(3.0)
-    gi = g.reset_index(drop=True)
-    bo = set(np.flatnonzero(bldg_over.to_numpy()))
-    lu = gi["LANDUSE"].astype(str).to_numpy()
-    av_arr = gi["av"].to_numpy()
-    # same-use valued siblings of impossible-building lots join as units --
-    # searched against ALL parcels (the site continues onto ordinary lots)
+    lu = g["LANDUSE"].astype(str).to_numpy()
+    av_arr = g["av"].to_numpy()
+    bo = set(np.flatnonzero(bldg_over))
     sib = set()
     if bo:
         bo_gdf = gpd.GeoDataFrame({"ga": sorted(bo)},
                                   geometry=buf.to_numpy()[sorted(bo)], crs=g.crs)
-        all_gdf = gpd.GeoDataFrame({"gb": np.arange(len(gi))},
-                                   geometry=gi.geometry.values, crs=g.crs)
+        all_gdf = gpd.GeoDataFrame({"gb": np.arange(len(g))},
+                                   geometry=g.geometry.values, crs=g.crs)
         p2 = gpd.sjoin(bo_gdf, all_gdf, predicate="intersects")
         for a, b in zip(p2["ga"].to_numpy(), p2["gb"].to_numpy()):
-            if a != b and av_arr[b] > 0 and lu[a] == lu[b]:
+            if a != b and free[b] and av_arr[b] > 0 and lu[a] == lu[b]:
                 sib.add(int(b))
-    sib_mask = np.zeros(len(gi), dtype=bool)
-    sib_mask[list(sib)] = True
-    cand = unit0 | absorbable | bldg_over | pd.Series(sib_mask, index=g.index)
-    sub = gpd.GeoDataFrame({"gi": np.flatnonzero(cand.to_numpy())},
-                           geometry=buf[cand].values, crs=g.crs)
+    unit_set = set(np.flatnonzero(tiny)) | bo | sib
+    absorb_set = set(np.flatnonzero(absorbable))
+    live = unit_set | absorb_set
+    live_idx = sorted(live)
+    sub = gpd.GeoDataFrame({"gi": live_idx},
+                           geometry=buf.to_numpy()[live_idx], crs=g.crs)
     pairs = gpd.sjoin(sub, sub, predicate="intersects")
-    unit_set = set(np.flatnonzero(unit0.to_numpy())) | bo | sib
-    absorb_set = set(np.flatnonzero(absorbable.to_numpy()))
 
     parent = {}
     def find(x):
@@ -405,62 +413,66 @@ def main():
         ra, rb = find(a), find(b)
         if ra != rb:
             parent[rb] = ra
-    live = unit_set | absorb_set
     for a, b in zip(pairs["gi_left"].to_numpy(), pairs["gi_right"].to_numpy()):
-        if a != b and a in live and b in live:
+        if a != b:
             union(int(a), int(b))
     comp = {}
     for x in live:
         comp.setdefault(find(int(x)), []).append(int(x))
-
-    acres_arr = gi["acres"].to_numpy()
-    acres_eff = g["acres_eff"].to_numpy().copy()
-    drop_idx = []
-    n_clusters = n_members = 0
-    for members in comp.values():
-        umem = [m for m in members if m in unit_set]
-        if not umem:
+    rid_col = g["rid"].copy()
+    n2c = 0
+    for root, members in comp.items():
+        if not any(m in unit_set for m in members):
             continue
-        amem = [m for m in members if m in absorb_set]
-        land = float(sum(acres_arr[m] for m in umem + amem))
-        uav = float(sum(av_arr[m] for m in umem))
-        if land <= 0 or uav <= 0:
-            continue
-        for m in umem:  # value-proportional land share -> uniform site $/acre
-            acres_eff[m] = max(av_arr[m] * land / uav, 0.004)
-        drop_idx.extend(amem)
-        n_clusters += 1
-        n_members += len(umem)
-    g["acres_eff"] = acres_eff
-    if drop_idx:
-        g = g.drop(g.index[drop_idx])
-    print(f"regimes: TLID-block {len(info):,} plats / {int(info['n'].sum()):,} units "
-          f"(tract land {float(info['land'].sum()):,.0f} ac); spatial "
-          f"{n_clusters:,} clusters / {n_members:,} members, "
-          f"{len(drop_idx):,} common parcels absorbed")
+        n2c += 1
+        for m in members:
+            rid_col.iat[m] = f"S|{root}"
+    g["rid"] = rid_col
 
-    g = g[(g["av"] > 0) & (g["acres_eff"] >= MIN_ACRES)].copy()
+    # ---- aggregate regimes into one bar per site -------------------------------
+    reg = g[g["rid"].notna()].copy()
+    single = g[g["rid"].isna()].copy()
+    base_addr = (reg["SITEADDR"].fillna("").astype(str).str.upper()
+                 .str.replace(UNIT_RE, "", regex=True).str.strip())
+    reg["_ab"] = base_addr
+    agg = reg.dissolve(by="rid", aggfunc={"av": "sum", "rmv": "sum",
+                                          "city_tax": "sum", "net": "sum",
+                                          "net1": "sum"})
+    grp = reg.groupby("rid")
+    agg["n_units"] = grp["av"].apply(lambda s: int((s > 0).sum()))
+    def pick_addr(s):
+        s = s[s != ""]
+        return s.mode().iat[0] if len(s) else ""
+    agg["base"] = reg[reg["av"] > 0].groupby("rid")["_ab"].agg(pick_addr)
+    first_addr = reg[reg["av"] > 0].groupby("rid")["SITEADDR"].first()
+    agg["SITEADDR"] = np.where(
+        agg["n_units"] > 1,
+        agg["base"].fillna("") + " \u00b7 " + agg["n_units"].astype(str) + " units",
+        first_addr.reindex(agg.index).fillna(""))
+    agg["land"] = (agg.geometry.area / 43560).clip(lower=0.004)
+    agg = agg[agg["av"] > 0]
+    n_absorbed = int((reg["av"] <= 0).sum())
+    print(f"regimes: {len(agg):,} sites from {len(reg):,} parcels "
+          f"({int(agg['n_units'].sum()):,} valued units, {n_absorbed:,} commons "
+          f"absorbed; TLID-blocks + {n2c:,} spatial clusters)")
 
-    # ---- net fields ------------------------------------------------------------
-    n = gpd.read_file(NET, ignore_geometry=True,
-                      columns=["TLID", "city_tax", "net_a2_demand", "net_a1_demand"])
-    n["tl"] = n["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
-    n = n.drop_duplicates("tl").set_index("tl")
-    g["tl"] = g["TLID"].astype(str).str.replace(" ", "", regex=False).str.upper()
-    g["city_tax"] = g["tl"].map(n["city_tax"]).fillna(0)
-    g["net"] = g["tl"].map(n["net_a2_demand"]).fillna(0)
-    g["net1"] = g["tl"].map(n["net_a1_demand"]).fillna(0)
-    g["q"] = (g["net"] / g["acres_eff"]).round(0).astype(int)
-    g["q2"] = (g["net1"] / g["acres_eff"]).round(0).astype(int)
+    single["land"] = single["acres"]
+    keep = ["SITEADDR", "av", "rmv", "land", "city_tax", "net", "net1", "geometry"]
+    g = pd.concat([single[keep], agg.reset_index()[keep]], ignore_index=True)
+    g = gpd.GeoDataFrame(g, geometry="geometry", crs=2913)
+    g = g[(g["av"] > 0) & (g["land"] >= MIN_ACRES)].copy()
+
+    # ---- derived display fields ------------------------------------------------
+    g["q"] = (g["net"] / g["land"]).round(0).astype(int)
+    g["q2"] = (g["net1"] / g["land"]).round(0).astype(int)
     g["nt"] = g["net"].round(0).astype(int)
     g["n2"] = g["net1"].round(0).astype(int)
     g["c"] = g["city_tax"].round(0).astype(int)
     ncap = float(np.quantile(np.abs(g.loc[g["q"] != 0, "q"]), NET_CLIP_Q))
     ncap2 = float(np.quantile(np.abs(g.loc[g["q2"] != 0, "q2"]), NET_CLIP_Q))
 
-    # ---- value fields (per-acre on the effective denominator) ------------------
-    g["avpa"] = g["av"] / g["acres_eff"]
-    g["rmvpa"] = np.maximum(g["rmv"] / g["acres_eff"], g["avpa"])
+    g["avpa"] = g["av"] / g["land"]
+    g["rmvpa"] = np.maximum(g["rmv"] / g["land"], g["avpa"])
     cap = float(np.quantile(g["rmvpa"], CLIP_Q))
     scale = MAX_M / cap
     g["a"] = (np.minimum(g["avpa"], cap) * scale).round(0).astype(int)
@@ -482,7 +494,7 @@ def main():
     g["x"] = cen4326.x.round(5)
     g["y"] = cen4326.y.round(5)
 
-    print(f"parcels: {len(g):,}  value clip ${cap:,.0f}/ac  net clip ${ncap:,.0f}/ac  "
+    print(f"bars: {len(g):,}  value clip ${cap:,.0f}/ac  net clip ${ncap:,.0f}/ac  "
           f"median taxed share {g['p'].median():.0f}%")
 
     out = g[["i", "s", "x", "y", "a", "m", "p", "r", "g", "b", "v", "w", "t", "u",
@@ -503,7 +515,6 @@ def main():
             .replace("__MAXNET__", f"{MAX_M_NET:.0f}"))
     OUT_HTML.write_text(html, encoding="utf-8")
     print(f"wrote {OUT_HTML} + data {OUT_DATA.stat().st_size/1e6:.0f} MB")
-
 
 if __name__ == "__main__":
     main()

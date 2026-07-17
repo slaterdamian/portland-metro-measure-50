@@ -30,9 +30,10 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <script>
 const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
 area into focus. Click a bar to pin its details (the pin follows you across
-views); click empty ground to clear. Condo, townhome &amp; apartment
-sites split across sibling tax lots are shown at the site's combined value
-per acre; their shared land is divided among the units.<br/>
+views); click empty ground to clear. Condo, townhome &amp; apartment sites
+that the assessor splits across many unit lots are combined into a single bar
+per site (total value over the site's land), so they compare directly with
+rental buildings on one lot.<br/>
 Data: Metro RLIS (ODbL) &middot; FY2025-26 Adopted Budget &middot; basemap
 &copy; OpenStreetMap contributors &middot; search &copy; Nominatim/OSM</small>`;
 const LEGEND_VALUE = `<b>1 &middot; What the land is worth &mdash; and what
@@ -70,8 +71,8 @@ subsidized). Height = the surplus or shortfall per acre.<br/>
 even after accounting for the funding mix &mdash; the honest freeloader
 signal.<br/>` + FOOT;
 
-const NCAP = 93908;
-const NCAP2 = 71378;
+const NCAP = 61332;
+const NCAP2 = 34730;
 const MODES = ['value', 'net', 'carry'];
 const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
                     carry: 'Share-Adjusted Net'};
@@ -79,12 +80,12 @@ let mode = 'value';
 let selectedI = -1;
 let selectedProps = null;
 let DATA = null;
-let vc = {x: -122.63691, y: 45.53000, zoom: 11.6};
+let vc = {x: -122.63701, y: 45.52989, zoom: 11.6};
 let vcTimer = null;
 
 const deckgl = new deck.DeckGL({
   container: 'app',
-  initialViewState: {latitude: 45.53000, longitude: -122.63691, zoom: 11.6, pitch: 55, bearing: -15},
+  initialViewState: {latitude: 45.52989, longitude: -122.63701, zoom: 11.6, pitch: 55, bearing: -15},
   controller: true,
   onViewStateChange: ({viewState}) => {
     clearTimeout(vcTimer);
