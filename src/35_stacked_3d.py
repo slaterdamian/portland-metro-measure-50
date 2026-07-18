@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-35_stacked_3d.py  --  Interactive parcel map, Portland OR: three views, one page.
+35_stacked_3d.py  --  Interactive parcel map, Portland OR: four views, one page.
 
   1 VALUE (default)  stacked AV/RMV: solid column = Measure-50 assessed value
                      per acre (Urban3 classed color); outlined faded top = real
@@ -8,6 +8,14 @@
   2 NET              Revenues & Costs per acre (Frame A2 demand basis, stage 80).
   3 SHARE-ADJUSTED   the same net graded on the citywide 54.1% funding mix
                      (A1 redistribution): orange = relative freeloaders.
+  4 FEASIBILITY      Phase 3 on the map: solid column = the lot's BUILT floor
+                     area ratio; outlined ghost = the FAR its zone needs for
+                     fiscal solvency (stage 96, demand basis). Black = built at
+                     or above the requirement, orange/red = underbuilt.
+
+A ZONING SLICER (RLIS generalized class ZONEGEN_CL) filters every view:
+residential-single / residential-multi / commercial-mixed / industrial /
+other, any combination.
 
 CONDO/TOWNHOME TREATMENT: unit parcels (e.g. "... ST UNIT #49") carry their own
 values but only a building-footprint sliver of land (A_T_ACRES=0, GIS_ACRES ~
@@ -43,6 +51,8 @@ import shapely
 
 SRC = Path("data/processed/taxlots_value_per_acre.geojson")
 NET = Path("data/processed/net_city.geojson")
+ZONING = Path("data/interim/zoning_portland.geojson")
+FEAS = Path("data/processed/zone_feasibility.csv")
 OUT_HTML = Path("outputs/figures/value_stack_3d.html")
 OUT_DATA = Path("outputs/figures/value_stack_data.geojson")
 
@@ -72,6 +82,11 @@ box-shadow:0 1px 6px rgba(0,0,0,.25)}
 background:#fff;border:1px solid #999;border-radius:6px;padding:8px 14px;
 cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 #toggle:hover{background:#f0f0f0}
+#filters{position:absolute;top:58px;right:14px;z-index:1;background:rgba(255,255,255,.95);
+border:1px solid #999;border-radius:6px;padding:8px 12px;font:12px/1.7 sans-serif;
+box-shadow:0 1px 4px rgba(0,0,0,.25)}
+#filters b{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#555}
+#filters label{display:block;cursor:pointer;white-space:nowrap}
 #searchwrap{position:absolute;top:14px;left:14px;z-index:2}
 #search{width:260px;font:13px sans-serif;padding:8px 10px;border:1px solid #999;
 border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
@@ -88,11 +103,20 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <div id="panel"></div>
 <div id="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);z-index:5;font:15px sans-serif;color:#333">Loading ~190,000 parcels (~20&nbsp;MB compressed)&hellip;</div>
 <button id="toggle">Show: Revenues &amp; Costs</button>
+<div id="filters"><b>Slice by zoning</b>
+<label><input type="checkbox" data-k="s" checked/> Residential &mdash; single-dwelling</label>
+<label><input type="checkbox" data-k="m" checked/> Residential &mdash; multi-dwelling</label>
+<label><input type="checkbox" data-k="c" checked/> Commercial / mixed use</label>
+<label><input type="checkbox" data-k="i" checked/> Industrial / employment</label>
+<label><input type="checkbox" data-k="o" checked/> Other (open space, rural&hellip;)</label>
+</div>
 <div id="legend"></div>
 <script>
 const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
 area into focus. Click a bar to pin its details (the pin follows you across
-views); click empty ground to clear. Condo, townhome &amp; apartment sites
+views); click empty ground to clear. The <b>Slice by zoning</b> checkboxes
+(top right) filter every view to any mix of broad zoning categories.
+Condo, townhome &amp; apartment sites
 that the assessor splits across many unit lots are combined into a single bar
 per site (total value over the site's land), so they compare directly with
 rental buildings on one lot.<br/>
@@ -132,13 +156,32 @@ subsidized). Height = the surplus or shortfall per acre.<br/>
 <b>How to read it:</b> orange in THIS view means below-average contribution
 even after accounting for the funding mix &mdash; the honest freeloader
 signal.<br/>` + FOOT;
+const LEGEND_ZONE = `<b>4 &middot; Could building more fix it? The zoning
+feasibility view.</b><br/>
+The <b>solid bar</b> is the lot's built intensity &mdash; floor area ratio
+(building sqft &divide; lot sqft). The <b>outlined ghost</b> rises to the FAR
+its zone would need for property taxes to cover allocated city services (the
+Phase&nbsp;3 model, people-based costing). <b><span
+style="color:#141414">Black</span></b> = built at or above the zone's
+break-even intensity; <b><span style="color:#a63603">orange/red</span></b> =
+underbuilt below it (vacant lots are deepest red); grey = no solvency standard
+modeled (parks, rural&hellip;).<br/>
+<b>How to read it:</b> in zone after zone the ghost tops sit well below what
+Title&nbsp;33 already allows &mdash; no zone's requirement exceeds its zoned
+capacity, so the binding constraint is <i>underbuilding, not zoning</i>. Use
+the slicer (top right) to examine one category at a time. Heights are FAR
+&times; a fixed scale, capped at FAR&nbsp;8.<br/>` + FOOT;
 
 const NCAP = __NCAP__;
 const NCAP2 = __NCAP2__;
-const MODES = ['value', 'net', 'carry'];
+const ZINFO = __ZINFO__;
+const FAR_M = 400, FAR_CLIP = 8;
+const MODES = ['value', 'net', 'carry', 'zone'];
 const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
-                    carry: 'Share-Adjusted Net'};
+                    carry: 'Share-Adjusted Net', zone: 'Zoning Feasibility'};
 let mode = 'value';
+let CATS = new Set(['s', 'm', 'c', 'i', 'o']);
+let FDATA = null;
 let selectedI = -1;
 let selectedProps = null;
 let DATA = null;
@@ -170,6 +213,21 @@ const deckgl = new deck.DeckGL({
       `Assessed (taxed): <b>${p.t}</b> &middot; ${p.v}<br/>` +
       `Real market: <b>${p.u}</b> &middot; ${p.w}<br/>` +
       `Taxed share: <b>${p.p}%</b> of market value`};
+    if (mode === 'zone') {
+      const zi = ZINFO[p.z];
+      let h = `<b>${p.s || 'no address'}</b><br/>` +
+        `Zone <b>${p.z || 'none mapped'}</b> &middot; ` +
+        `built FAR <b>${p.fr.toFixed(2)}</b><br/>`;
+      if (zi && zi.rd != null) {
+        h += `Zone break-even FAR: <b>${zi.rd.toFixed(2)}</b> &middot; ` +
+          (zi.fb != null
+            ? `zoned max <b>${zi.fb.toFixed(1)}</b>` +
+              (zi.fo != null ? ` (${zi.fo.toFixed(1)} w/ bonus)` : '')
+            : `no FAR cap`) +
+          `<br/><i>${zi.v}</i>`;
+      } else h += `<i>no solvency standard modeled for this zone</i>`;
+      return {html: h};
+    }
     const tot = mode === 'net' ? p.nt : p.n2;
     const pa = mode === 'net' ? p.q : p.q2;
     const s = tot < 0 ? '&minus;' : '+';
@@ -218,16 +276,25 @@ function trig() {
   return [selectedI, mode, vc.x.toFixed(3), vc.y.toFixed(3),
           Math.round(vc.zoom * 4)];
 }
+function zreq(p) {
+  const zi = ZINFO[p.z];
+  return zi && zi.rd != null ? zi.rd : null;
+}
+function zoneColor(p) {
+  const r = zreq(p);
+  if (r == null) return [158, 158, 158];
+  return netColor(p.fr - r, r);
+}
 function layersFor(m) {
   const t = {getFillColor: trig(), getLineColor: trig()};
   if (m === 'value') return [osm,
-    new deck.GeoJsonLayer({id: 'solid', data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'solid', data: FDATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => f.properties.a,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
                           Math.round(255 * fadeF(f))],
       getLineColor: [0, 0, 0, 0], updateTriggers: t}),
-    new deck.GeoJsonLayer({id: 'ghost', data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'ghost', data: FDATA, extruded: true,
       pickable: false, wireframe: true,
       getElevation: f => f.properties.m,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
@@ -236,10 +303,27 @@ function layersFor(m) {
       lineWidthMinPixels: 1,
       parameters: {depthMask: false},
       getPolygonOffset: () => [0, -600], updateTriggers: t})];
+  if (m === 'zone') return [osm,
+    new deck.GeoJsonLayer({id: 'zsolid', data: FDATA, extruded: true,
+      pickable: true, wireframe: false,
+      getElevation: f => Math.min(f.properties.fr, FAR_CLIP) * FAR_M,
+      getFillColor: f => zoneColor(f.properties)
+                          .concat(Math.round(255 * fadeF(f))),
+      getLineColor: [0, 0, 0, 0], updateTriggers: t}),
+    new deck.GeoJsonLayer({id: 'zghost', data: FDATA, extruded: true,
+      pickable: false, wireframe: true,
+      getElevation: f => Math.max(zreq(f.properties) || 0,
+                                  Math.min(f.properties.fr, FAR_CLIP)) * FAR_M,
+      getFillColor: f => zoneColor(f.properties)
+                          .concat(Math.round(__GA__ * fadeF(f))),
+      getLineColor: [0, 0, 0, 255],
+      lineWidthMinPixels: 1,
+      parameters: {depthMask: false},
+      getPolygonOffset: () => [0, -600], updateTriggers: t})];
   const field = m === 'net' ? 'q' : 'q2';
   const cap = m === 'net' ? NCAP : NCAP2;
   return [osm,
-    new deck.GeoJsonLayer({id: 'net-' + m, data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'net-' + m, data: FDATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => Math.min(Math.abs(f.properties[field]) / cap, 1) * __MAXNET__,
       getFillColor: f => netColor(f.properties[field], cap)
@@ -262,7 +346,11 @@ function panel() {
     `<tr><td>Net vs services</td><td><b>${sN}$${Math.abs(p.nt).toLocaleString()}</b>` +
     ` &middot; ${sQ}$${Math.abs(p.q).toLocaleString()}/ac</td></tr>` +
     `<tr><td>Share-adjusted</td><td><b>${sN2}$${Math.abs(p.n2).toLocaleString()}</b>` +
-    ` &middot; ${sQ2}$${Math.abs(p.q2).toLocaleString()}/ac</td></tr></table>` +
+    ` &middot; ${sQ2}$${Math.abs(p.q2).toLocaleString()}/ac</td></tr>` +
+    `<tr><td>Zoning</td><td><b>${p.z || '&mdash;'}</b> &middot; built FAR ` +
+    `${p.fr.toFixed(2)}` +
+    (zreq(p) != null ? ` of ${zreq(p).toFixed(2)} needed` : '') +
+    `</td></tr></table>` +
     `<i style="color:#777">Selection locked — switch views to compare.</i>`;
   el.style.display = 'block';
 }
@@ -276,7 +364,8 @@ function flyTo(lon, lat, zoom) {
   vcTimer = setTimeout(render, 1000);   // re-center the fade at the destination
 }
 function render() {
-  const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY};
+  const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY,
+                   zone: LEGEND_ZONE};
   document.getElementById('legend').innerHTML = LEGENDS[mode];
   const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
   document.getElementById('toggle').innerHTML = 'Show: ' + MODE_LABEL[next];
@@ -286,6 +375,19 @@ document.getElementById('toggle').onclick = () => {
   mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
   render();
 };
+function applyFilter() {
+  if (!DATA) return;
+  FDATA = CATS.size === 5 ? DATA :
+    {type: 'FeatureCollection',
+     features: DATA.features.filter(f => CATS.has(f.properties.k))};
+}
+document.querySelectorAll('#filters input').forEach(cb => {
+  cb.onchange = () => {
+    cb.checked ? CATS.add(cb.dataset.k) : CATS.delete(cb.dataset.k);
+    applyFilter();
+    render();
+  };
+});
 document.getElementById('search').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const q = e.target.value.trim();
@@ -312,6 +414,7 @@ document.getElementById('search').addEventListener('input',
   e => { e.target.style.borderColor = '#999'; });
 fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
   DATA = data;
+  applyFilter();
   document.getElementById('loading').style.display = 'none';
   render();
 });
@@ -348,6 +451,7 @@ def main():
     g["city_tax"] = tl.map(n["city_tax"]).fillna(0)
     g["net"] = tl.map(n["net_a2_demand"]).fillna(0)
     g["net1"] = tl.map(n["net_a1_demand"]).fillna(0)
+    g["bsf"] = pd.to_numeric(g["BLDGSQFT"], errors="coerce").fillna(0)
 
     # ---- regime identification -------------------------------------------------
     # Condo, townhome, and split-site apartment parcels are aggregated into ONE
@@ -374,7 +478,7 @@ def main():
     # lot), touching same-use valued siblings of those lots, and touching
     # private zero-value commons.
     free = g["rid"].isna().to_numpy()
-    bsq = pd.to_numeric(g["BLDGSQFT"], errors="coerce").fillna(0)
+    bsq = g["bsf"]
     bldg_over = free & (g["av"] > 0).to_numpy() & \
         (bsq > 1.5 * g["acres"] * 43560).to_numpy() & (g["acres"] > 0).to_numpy()
     tiny = free & (g["av"] > 0).to_numpy() & (g["acres"] < 0.03).to_numpy()
@@ -437,7 +541,7 @@ def main():
     reg["_ab"] = base_addr
     agg = reg.dissolve(by="rid", aggfunc={"av": "sum", "rmv": "sum",
                                           "city_tax": "sum", "net": "sum",
-                                          "net1": "sum"})
+                                          "net1": "sum", "bsf": "sum"})
     grp = reg.groupby("rid")
     agg["n_units"] = grp["av"].apply(lambda s: int((s > 0).sum()))
     def pick_addr(s):
@@ -457,10 +561,24 @@ def main():
           f"absorbed; TLID-blocks + {n2c:,} spatial clusters)")
 
     single["land"] = single["acres"]
-    keep = ["SITEADDR", "av", "rmv", "land", "city_tax", "net", "net1", "geometry"]
+    keep = ["SITEADDR", "av", "rmv", "land", "city_tax", "net", "net1", "bsf",
+            "geometry"]
     g = pd.concat([single[keep], agg.reset_index()[keep]], ignore_index=True)
     g = gpd.GeoDataFrame(g, geometry="geometry", crs=2913)
     g = g[(g["av"] > 0) & (g["land"] >= MIN_ACRES)].copy()
+
+    # ---- zoning: exact zone + broad slicer category (centroid join) ------------
+    zon = gpd.read_file(ZONING)[["ZONE", "ZONEGEN_CL", "geometry"]].to_crs(2913)
+    zon["geometry"] = zon.geometry.make_valid()
+    cenz = gpd.GeoDataFrame(geometry=g.geometry.centroid, crs=2913)
+    jz = gpd.sjoin(cenz, zon, predicate="within", how="left")
+    jz = jz[~jz.index.duplicated(keep="first")]
+    CAT = {"SFR": "s", "MFR": "m", "MUR": "c", "COM": "c", "IND": "i"}
+    g["z"] = jz["ZONE"].reindex(g.index).fillna("")
+    g["k"] = jz["ZONEGEN_CL"].reindex(g.index).map(CAT).fillna("o")
+    g["fr"] = (g["bsf"] / (g["land"] * 43560)).round(2)
+    print("slicer categories:",
+          g["k"].value_counts().to_dict())
 
     # ---- derived display fields ------------------------------------------------
     g["q"] = (g["net"] / g["land"]).round(0).astype(int)
@@ -498,7 +616,7 @@ def main():
           f"median taxed share {g['p'].median():.0f}%")
 
     out = g[["i", "s", "x", "y", "a", "m", "p", "r", "g", "b", "v", "w", "t", "u",
-             "q", "q2", "nt", "n2", "c", "geometry"]].to_crs(4326)
+             "q", "q2", "nt", "n2", "c", "z", "k", "fr", "geometry"]].to_crs(4326)
     out["geometry"] = shapely.set_precision(out.geometry.values, 1e-6)
     out = out[~out.geometry.is_empty]
     cen = out.geometry.union_all().centroid
@@ -507,12 +625,28 @@ def main():
     fc = json.loads(out.to_json())
     json.dump(fc, open(OUT_DATA, "w", encoding="utf-8"), separators=(",", ":"))
 
+    # per-zone feasibility standards (stage 96) embedded as a small JS table
+    fz = pd.read_csv(FEAS)
+
+    def _n(x):
+        return None if pd.isna(x) else round(float(x), 2)
+
+    zinfo = {}
+    for r in fz.itertuples():
+        na = r.verdict_demand == "n/a"
+        zinfo[r.zone] = {
+            "rd": None if na else _n(r.required_far_demand),
+            "fb": _n(r.far_base), "fo": _n(r.far_bonus),
+            "sd": _n(r.solvency_demand), "sn": _n(r.solvency_network),
+            "v": r.verdict_demand}
+
     html = (TEMPLATE.replace("__LAT__", f"{cen.y:.5f}")
             .replace("__LON__", f"{cen.x:.5f}")
             .replace("__GA__", str(GHOST_ALPHA))
             .replace("__NCAP__", f"{ncap:.0f}")
             .replace("__NCAP2__", f"{ncap2:.0f}")
-            .replace("__MAXNET__", f"{MAX_M_NET:.0f}"))
+            .replace("__MAXNET__", f"{MAX_M_NET:.0f}")
+            .replace("__ZINFO__", json.dumps(zinfo, separators=(",", ":"))))
     OUT_HTML.write_text(html, encoding="utf-8")
     print(f"wrote {OUT_HTML} + data {OUT_DATA.stat().st_size/1e6:.0f} MB")
 

@@ -8,19 +8,21 @@ data, and extending into a zoning-feasibility question: what density does land
 *need* to pay for the services it consumes, and does the zoning code allow it?*
 
 > ### 🌐 [Explore the interactive map →](https://slaterdamian.github.io/portland-metro-measure-50/)
-> All 192,600 Portland parcels in 3D, three views in one page: **taxable value**
+> All 192,600 Portland parcels in 3D, four views in one page: **taxable value**
 > (solid = taxed Measure-50 value, ghost top = untaxed market value),
-> **revenues & costs** (Annapolis-style fiscal net), and **share-adjusted net**
-> (relative freeloaders with the funding mix controlled for). Click a parcel to
-> lock and compare it across views; search any address or landmark.
+> **revenues & costs** (Annapolis-style fiscal net), **share-adjusted net**
+> (relative freeloaders with the funding mix controlled for), and **zoning
+> feasibility** (solid = built FAR, ghost = the FAR the zone needs to break
+> even — Phase 3 on the map). Slice any view by broad zoning category
+> (single-dwelling / multi-dwelling / commercial / industrial); click a parcel
+> to lock and compare it across views; search any address or landmark.
 > *~20 MB download on first load.*
 
-> **Status: rebuild in progress.** This project was restarted on exclusively
-> public, redistributable sources (Metro RLIS Discovery, Portland open data,
-> county assessor publications). Phase 1 (value per acre) is implemented;
-> the cost/net and zoning-feasibility phases are being rebuilt on the same
-> foundations. Critique welcome — every assumption is documented to be argued
-> with.
+> **Status: v0.2 — all three phases complete.** This project was rebuilt on
+> exclusively public, redistributable sources (Metro RLIS Discovery, Portland
+> open data, county assessor publications): value per acre, the revenue
+> engine, cost allocation and net maps, and the Title 33 zoning-feasibility
+> model. Critique welcome — every assumption is documented to be argued with.
 
 ## Data sources & licensing
 
@@ -72,9 +74,11 @@ conda run -n vpa python src/30_render_3d.py
 
 - **Phase 1 — value per acre.** ✅ Assessed & market value per acre, taxed
   share; 3D render. (233k parcels.)
-- **Phase 2 — cost & net per acre.** 🔜 District revenue (rate table pending),
-  cost allocation over city-owned networks (BES collection system `OWNRSHIP`,
-  RLIS streets), the surplus/deficit map, and cost-basis sensitivity.
+- **Phase 2 — cost & net per acre.** ✅ Tri-county rate tables → $2.0B revenue
+  engine; district revenue split; FY2025-26 budget parse; cost allocation
+  (demand & network bases) over city-owned infrastructure (BES collection
+  system `OWNRSHIP`, water mains, RLIS streets); the surplus/deficit maps.
+  See [docs/cost-allocation.md](docs/cost-allocation.md).
 - **Phase 3 — zoning feasibility.** ✅ Title 33's development standards
   extracted (Tables 110-4, 120-4, 130-2, 140-2 incl. Portland's minimum-density
   mandates); per zone, the model derives the built intensity (FAR / du-acre)
@@ -82,7 +86,8 @@ conda run -n vpa python src/30_render_3d.py
   requirement exceeds zoned capacity — the binding constraint is underbuilding,
   not Title 33** (e.g. CX has built FAR 1.55 of an allowed 4.0). See
   [docs/feasibility.md](docs/feasibility.md) and
-  `outputs/figures/zone_feasibility.png`.
+  `outputs/figures/zone_feasibility.png` — or view 4 of the
+  [interactive map](https://slaterdamian.github.io/portland-metro-measure-50/).
 
 ## License
 
