@@ -10,6 +10,11 @@ box-shadow:0 1px 6px rgba(0,0,0,.25)}
 background:#fff;border:1px solid #999;border-radius:6px;padding:8px 14px;
 cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.25)}
 #toggle:hover{background:#f0f0f0}
+#filters{position:absolute;top:58px;right:14px;z-index:1;background:rgba(255,255,255,.95);
+border:1px solid #999;border-radius:6px;padding:8px 12px;font:12px/1.7 sans-serif;
+box-shadow:0 1px 4px rgba(0,0,0,.25)}
+#filters b{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#555}
+#filters label{display:block;cursor:pointer;white-space:nowrap}
 #searchwrap{position:absolute;top:14px;left:14px;z-index:2}
 #search{width:260px;font:13px sans-serif;padding:8px 10px;border:1px solid #999;
 border-radius:6px;box-shadow:0 1px 4px rgba(0,0,0,.25)}
@@ -26,11 +31,20 @@ max-width:280px;display:none;box-shadow:0 1px 6px rgba(0,0,0,.3)}
 <div id="panel"></div>
 <div id="loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.85);z-index:5;font:15px sans-serif;color:#333">Loading ~190,000 parcels (~20&nbsp;MB compressed)&hellip;</div>
 <button id="toggle">Show: Revenues &amp; Costs</button>
+<div id="filters"><b>Slice by zoning</b>
+<label><input type="checkbox" data-k="s" checked/> Residential &mdash; single-dwelling</label>
+<label><input type="checkbox" data-k="m" checked/> Residential &mdash; multi-dwelling</label>
+<label><input type="checkbox" data-k="c" checked/> Commercial / mixed use</label>
+<label><input type="checkbox" data-k="i" checked/> Industrial / employment</label>
+<label><input type="checkbox" data-k="o" checked/> Other (open space, rural&hellip;)</label>
+</div>
 <div id="legend"></div>
 <script>
 const FOOT = `<small>Bars fade toward the view edges &mdash; pan to bring an
 area into focus. Click a bar to pin its details (the pin follows you across
-views); click empty ground to clear. Condo, townhome &amp; apartment sites
+views); click empty ground to clear. The <b>Slice by zoning</b> checkboxes
+(top right) filter every view to any mix of broad zoning categories.
+Condo, townhome &amp; apartment sites
 that the assessor splits across many unit lots are combined into a single bar
 per site (total value over the site's land), so they compare directly with
 rental buildings on one lot.<br/>
@@ -70,13 +84,32 @@ subsidized). Height = the surplus or shortfall per acre.<br/>
 <b>How to read it:</b> orange in THIS view means below-average contribution
 even after accounting for the funding mix &mdash; the honest freeloader
 signal.<br/>` + FOOT;
+const LEGEND_ZONE = `<b>4 &middot; Could building more fix it? The zoning
+feasibility view.</b><br/>
+The <b>solid bar</b> is the lot's built intensity &mdash; floor area ratio
+(building sqft &divide; lot sqft). The <b>outlined ghost</b> rises to the FAR
+its zone would need for property taxes to cover allocated city services (the
+Phase&nbsp;3 model, people-based costing). <b><span
+style="color:#141414">Black</span></b> = built at or above the zone's
+break-even intensity; <b><span style="color:#a63603">orange/red</span></b> =
+underbuilt below it (vacant lots are deepest red); grey = no solvency standard
+modeled (parks, rural&hellip;).<br/>
+<b>How to read it:</b> in zone after zone the ghost tops sit well below what
+Title&nbsp;33 already allows &mdash; no zone's requirement exceeds its zoned
+capacity, so the binding constraint is <i>underbuilding, not zoning</i>. Use
+the slicer (top right) to examine one category at a time. Heights are FAR
+&times; a fixed scale, capped at FAR&nbsp;8.<br/>` + FOOT;
 
 const NCAP = 61332;
 const NCAP2 = 34730;
-const MODES = ['value', 'net', 'carry'];
+const ZINFO = {"RF":{"rd":0.01,"fb":null,"fo":null,"sd":1.36,"sn":0.39,"v":NaN},"R20":{"rd":0.05,"fb":0.7,"fo":0.8,"sd":1.31,"sn":0.41,"v":"solvent now"},"R10":{"rd":0.13,"fb":0.7,"fo":0.8,"sd":1.16,"sn":0.56,"v":"solvent now"},"EG2":{"rd":0.13,"fb":3.0,"fo":null,"sd":1.03,"sn":0.53,"v":"solvent now"},"IH":{"rd":0.07,"fb":null,"fo":null,"sd":0.95,"sn":0.4,"v":"no FAR limit \u2014 market-bound, not code-bound"},"IG2":{"rd":0.08,"fb":null,"fo":null,"sd":0.9,"sn":0.35,"v":"no FAR limit \u2014 market-bound, not code-bound"},"R7":{"rd":0.27,"fb":0.7,"fo":0.8,"sd":0.66,"sn":0.47,"v":"achievable under BASE zoning"},"CE":{"rd":0.26,"fb":2.5,"fo":4.0,"sd":0.65,"sn":0.47,"v":"achievable under BASE zoning"},"R5":{"rd":0.45,"fb":0.8,"fo":0.9,"sd":0.6,"sn":0.54,"v":"achievable under BASE zoning"},"IG1":{"rd":0.59,"fb":null,"fo":null,"sd":0.59,"sn":0.37,"v":"no FAR limit \u2014 market-bound, not code-bound"},"EX":{"rd":1.83,"fb":3.0,"fo":5.0,"sd":0.58,"sn":1.72,"v":"achievable under BASE zoning"},"CX":{"rd":2.93,"fb":4.0,"fo":6.0,"sd":0.53,"sn":1.81,"v":"achievable under BASE zoning"},"EG1":{"rd":0.71,"fb":3.0,"fo":null,"sd":0.48,"sn":0.33,"v":"achievable under BASE zoning"},"CM2":{"rd":0.97,"fb":2.5,"fo":4.0,"sd":0.46,"sn":0.6,"v":"achievable under BASE zoning"},"R2.5":{"rd":0.69,"fb":1.0,"fo":1.1,"sd":0.46,"sn":0.53,"v":"achievable under BASE zoning"},"CM1":{"rd":0.76,"fb":1.5,"fo":2.5,"sd":0.41,"sn":0.38,"v":"achievable under BASE zoning"},"CM3":{"rd":1.89,"fb":3.0,"fo":5.0,"sd":0.41,"sn":0.91,"v":"achievable under BASE zoning"},"CR":{"rd":0.95,"fb":1.0,"fo":null,"sd":0.4,"sn":0.15,"v":NaN},"RX":{"rd":4.17,"fb":4.0,"fo":6.0,"sd":0.36,"sn":2.56,"v":"achievable only WITH bonus FAR"},"RM1":{"rd":0.74,"fb":1.0,"fo":1.5,"sd":0.35,"sn":0.52,"v":"achievable under BASE zoning"},"RM2":{"rd":0.97,"fb":1.5,"fo":2.25,"sd":0.35,"sn":0.65,"v":"achievable under BASE zoning"},"RM4":{"rd":3.56,"fb":3.0,"fo":4.0,"sd":0.31,"sn":1.75,"v":"achievable only WITH bonus FAR"},"RM3":{"rd":2.04,"fb":2.0,"fo":3.0,"sd":0.27,"sn":0.73,"v":"achievable only WITH bonus FAR"},"CI2":{"rd":1.73,"fb":null,"fo":null,"sd":0.25,"sn":0.43,"v":NaN},"RMP":{"rd":0.0,"fb":null,"fo":null,"sd":0.12,"sn":0.22,"v":NaN},"OS":{"rd":0.0,"fb":null,"fo":null,"sd":0.07,"sn":0.0,"v":NaN},"IR":{"rd":1.89,"fb":null,"fo":null,"sd":0.03,"sn":0.02,"v":NaN},"CI1":{"rd":5.13,"fb":null,"fo":null,"sd":0.01,"sn":0.02,"v":NaN}};
+const FAR_M = 400, FAR_CLIP = 8;
+const MODES = ['value', 'net', 'carry', 'zone'];
 const MODE_LABEL = {value: 'Taxable Value', net: 'Revenues & Costs',
-                    carry: 'Share-Adjusted Net'};
+                    carry: 'Share-Adjusted Net', zone: 'Zoning Feasibility'};
 let mode = 'value';
+let CATS = new Set(['s', 'm', 'c', 'i', 'o']);
+let FDATA = null;
 let selectedI = -1;
 let selectedProps = null;
 let DATA = null;
@@ -108,6 +141,21 @@ const deckgl = new deck.DeckGL({
       `Assessed (taxed): <b>${p.t}</b> &middot; ${p.v}<br/>` +
       `Real market: <b>${p.u}</b> &middot; ${p.w}<br/>` +
       `Taxed share: <b>${p.p}%</b> of market value`};
+    if (mode === 'zone') {
+      const zi = ZINFO[p.z];
+      let h = `<b>${p.s || 'no address'}</b><br/>` +
+        `Zone <b>${p.z || 'none mapped'}</b> &middot; ` +
+        `built FAR <b>${p.fr.toFixed(2)}</b><br/>`;
+      if (zi && zi.rd != null) {
+        h += `Zone break-even FAR: <b>${zi.rd.toFixed(2)}</b> &middot; ` +
+          (zi.fb != null
+            ? `zoned max <b>${zi.fb.toFixed(1)}</b>` +
+              (zi.fo != null ? ` (${zi.fo.toFixed(1)} w/ bonus)` : '')
+            : `no FAR cap`) +
+          `<br/><i>${zi.v}</i>`;
+      } else h += `<i>no solvency standard modeled for this zone</i>`;
+      return {html: h};
+    }
     const tot = mode === 'net' ? p.nt : p.n2;
     const pa = mode === 'net' ? p.q : p.q2;
     const s = tot < 0 ? '&minus;' : '+';
@@ -156,16 +204,25 @@ function trig() {
   return [selectedI, mode, vc.x.toFixed(3), vc.y.toFixed(3),
           Math.round(vc.zoom * 4)];
 }
+function zreq(p) {
+  const zi = ZINFO[p.z];
+  return zi && zi.rd != null ? zi.rd : null;
+}
+function zoneColor(p) {
+  const r = zreq(p);
+  if (r == null) return [158, 158, 158];
+  return netColor(p.fr - r, r);
+}
 function layersFor(m) {
   const t = {getFillColor: trig(), getLineColor: trig()};
   if (m === 'value') return [osm,
-    new deck.GeoJsonLayer({id: 'solid', data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'solid', data: FDATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => f.properties.a,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
                           Math.round(255 * fadeF(f))],
       getLineColor: [0, 0, 0, 0], updateTriggers: t}),
-    new deck.GeoJsonLayer({id: 'ghost', data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'ghost', data: FDATA, extruded: true,
       pickable: false, wireframe: true,
       getElevation: f => f.properties.m,
       getFillColor: f => [f.properties.r, f.properties.g, f.properties.b,
@@ -174,10 +231,27 @@ function layersFor(m) {
       lineWidthMinPixels: 1,
       parameters: {depthMask: false},
       getPolygonOffset: () => [0, -600], updateTriggers: t})];
+  if (m === 'zone') return [osm,
+    new deck.GeoJsonLayer({id: 'zsolid', data: FDATA, extruded: true,
+      pickable: true, wireframe: false,
+      getElevation: f => Math.min(f.properties.fr, FAR_CLIP) * FAR_M,
+      getFillColor: f => zoneColor(f.properties)
+                          .concat(Math.round(255 * fadeF(f))),
+      getLineColor: [0, 0, 0, 0], updateTriggers: t}),
+    new deck.GeoJsonLayer({id: 'zghost', data: FDATA, extruded: true,
+      pickable: false, wireframe: true,
+      getElevation: f => Math.max(zreq(f.properties) || 0,
+                                  Math.min(f.properties.fr, FAR_CLIP)) * FAR_M,
+      getFillColor: f => zoneColor(f.properties)
+                          .concat(Math.round(56 * fadeF(f))),
+      getLineColor: [0, 0, 0, 255],
+      lineWidthMinPixels: 1,
+      parameters: {depthMask: false},
+      getPolygonOffset: () => [0, -600], updateTriggers: t})];
   const field = m === 'net' ? 'q' : 'q2';
   const cap = m === 'net' ? NCAP : NCAP2;
   return [osm,
-    new deck.GeoJsonLayer({id: 'net-' + m, data: DATA, extruded: true,
+    new deck.GeoJsonLayer({id: 'net-' + m, data: FDATA, extruded: true,
       pickable: true, wireframe: false,
       getElevation: f => Math.min(Math.abs(f.properties[field]) / cap, 1) * 3200,
       getFillColor: f => netColor(f.properties[field], cap)
@@ -200,7 +274,11 @@ function panel() {
     `<tr><td>Net vs services</td><td><b>${sN}$${Math.abs(p.nt).toLocaleString()}</b>` +
     ` &middot; ${sQ}$${Math.abs(p.q).toLocaleString()}/ac</td></tr>` +
     `<tr><td>Share-adjusted</td><td><b>${sN2}$${Math.abs(p.n2).toLocaleString()}</b>` +
-    ` &middot; ${sQ2}$${Math.abs(p.q2).toLocaleString()}/ac</td></tr></table>` +
+    ` &middot; ${sQ2}$${Math.abs(p.q2).toLocaleString()}/ac</td></tr>` +
+    `<tr><td>Zoning</td><td><b>${p.z || '&mdash;'}</b> &middot; built FAR ` +
+    `${p.fr.toFixed(2)}` +
+    (zreq(p) != null ? ` of ${zreq(p).toFixed(2)} needed` : '') +
+    `</td></tr></table>` +
     `<i style="color:#777">Selection locked — switch views to compare.</i>`;
   el.style.display = 'block';
 }
@@ -214,7 +292,8 @@ function flyTo(lon, lat, zoom) {
   vcTimer = setTimeout(render, 1000);   // re-center the fade at the destination
 }
 function render() {
-  const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY};
+  const LEGENDS = {value: LEGEND_VALUE, net: LEGEND_NET, carry: LEGEND_CARRY,
+                   zone: LEGEND_ZONE};
   document.getElementById('legend').innerHTML = LEGENDS[mode];
   const next = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
   document.getElementById('toggle').innerHTML = 'Show: ' + MODE_LABEL[next];
@@ -224,6 +303,19 @@ document.getElementById('toggle').onclick = () => {
   mode = MODES[(MODES.indexOf(mode) + 1) % MODES.length];
   render();
 };
+function applyFilter() {
+  if (!DATA) return;
+  FDATA = CATS.size === 5 ? DATA :
+    {type: 'FeatureCollection',
+     features: DATA.features.filter(f => CATS.has(f.properties.k))};
+}
+document.querySelectorAll('#filters input').forEach(cb => {
+  cb.onchange = () => {
+    cb.checked ? CATS.add(cb.dataset.k) : CATS.delete(cb.dataset.k);
+    applyFilter();
+    render();
+  };
+});
 document.getElementById('search').addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const q = e.target.value.trim();
@@ -250,6 +342,7 @@ document.getElementById('search').addEventListener('input',
   e => { e.target.style.borderColor = '#999'; });
 fetch('value_stack_data.geojson').then(r => r.json()).then(data => {
   DATA = data;
+  applyFilter();
   document.getElementById('loading').style.display = 'none';
   render();
 });
