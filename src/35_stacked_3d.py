@@ -10,8 +10,9 @@
                      (A1 redistribution): orange = relative freeloaders.
   4 FEASIBILITY      Phase 3 on the map: solid column = the lot's BUILT floor
                      area ratio; outlined ghost = the FAR its zone needs for
-                     fiscal solvency (stage 96, demand basis). Black = built at
-                     or above the requirement, orange/red = underbuilt.
+                     fiscal solvency (stage 96, demand basis). Blue = built at
+                     or above the requirement, yellow/gold = underbuilt (its
+                     own palette so it can't be misread as the net views).
 
 A ZONING SLICER (RLIS generalized class ZONEGEN_CL) filters every view:
 residential-single / residential-multi / commercial-mixed / industrial /
@@ -162,10 +163,10 @@ The <b>solid bar</b> is the lot's built intensity &mdash; floor area ratio
 (building sqft &divide; lot sqft). The <b>outlined ghost</b> rises to the FAR
 its zone would need for property taxes to cover allocated city services (the
 Phase&nbsp;3 model, people-based costing). <b><span
-style="color:#141414">Black</span></b> = built at or above the zone's
-break-even intensity; <b><span style="color:#a63603">orange/red</span></b> =
-underbuilt below it (vacant lots are deepest red); grey = no solvency standard
-modeled (parks, rural&hellip;).<br/>
+style="color:#08306b">Blue</span></b> = built at or above the zone's
+break-even intensity; <b><span style="color:#a16908">yellow&rarr;gold</span></b>
+= underbuilt below it (vacant lots are deepest gold); grey = no solvency
+standard modeled (parks, rural&hellip;).<br/>
 <b>How to read it:</b> in zone after zone the ghost tops sit well below what
 Title&nbsp;33 already allows &mdash; no zone's requirement exceeds its zoned
 capacity, so the binding constraint is <i>underbuilding, not zoning</i>. Use
@@ -281,9 +282,15 @@ function zreq(p) {
   return zi && zi.rd != null ? zi.rd : null;
 }
 function zoneColor(p) {
+  // deliberately distinct from the net views' black/orange: blue = built at or
+  // above the zone's break-even FAR, yellow->gold = underbuilt (colorblind-safe)
   const r = zreq(p);
   if (r == null) return [158, 158, 158];
-  return netColor(p.fr - r, r);
+  const q = p.fr - r;
+  const t = Math.min(Math.abs(q) / r, 1), f = Math.max(t, 0.08);
+  const [c0, c1] = q > 0 ? [[189, 215, 231], [8, 48, 107]]
+                         : [[255, 247, 188], [161, 105, 8]];
+  return c0.map((v, i) => Math.round(v + (c1[i] - v) * f));
 }
 function layersFor(m) {
   const t = {getFillColor: trig(), getLineColor: trig()};
